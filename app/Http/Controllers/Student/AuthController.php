@@ -6,13 +6,11 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Student;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
     public function login(Request $request)
     {
-        // 💡 PERBAIKAN: Gunakan Eager Loading (.with('classroom')) untuk menyertakan data kelas.
         $student = Student::with('classroom')
             ->where('username', $request->username)
             ->first();
@@ -21,29 +19,26 @@ class AuthController extends Controller
             return response()->json(['message' => 'Username atau password salah'], 401);
         }
 
+        // Buat token baru
         $token = $student->createToken('student_token')->plainTextToken;
 
         return response()->json([
             'message' => 'Login berhasil',
             'token' => $token,
-            // $student sekarang memiliki relasi 'classroom' yang lengkap
             'student' => $student
         ]);
     }
 
     public function profile(Request $request)
     {
-        // PENTING: Saat mengambil profil, Anda juga mungkin perlu Eager Load relasi:
-        $student = $request->user('student')->load('classroom');
-        return response()->json($student);
+        $student = $request->user(); // <-- FIX
+        return response()->json($student->load('classroom'));
     }
 
     public function logout(Request $request)
     {
-        $student = $request->user('student');
-        if ($student) {
-            $student->tokens()->delete();
-        }
+        // Hapus token yang sedang aktif saja
+        $request->user()->currentAccessToken()->delete(); // <-- FIX
 
         return response()->json(['message' => 'Logout berhasil']);
     }
