@@ -16,9 +16,9 @@ class Student extends Authenticatable {
     protected $fillable = [ 'name', 'username', 'email', 'password','plain_password','photo','absen_number','class_room_id','user_id','serial_id'];
     protected $hidden = ['password', 'remember_token'];
 
-    public function user()
+    public function guru()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     public function classroom()

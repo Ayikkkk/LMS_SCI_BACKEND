@@ -32,8 +32,14 @@ class AuthController extends Controller
     public function profile(Request $request)
     {
         $student = $request->user(); // <-- FIX
-        return response()->json($student->load('classroom'));
+        return response()->json(
+            $student->load([
+                'classroom',
+                'guru:id,name,email,phone'
+            ])
+        );
     }
+
 
     public function logout(Request $request)
     {
