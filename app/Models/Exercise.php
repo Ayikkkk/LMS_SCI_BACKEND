@@ -33,4 +33,9 @@ class Exercise extends Model
     {
         return $this->belongsTo(Lesson::class, 'lesson_id');
     }
+
+    public function exerciseType()
+    {
+        return $this->belongsTo(ExerciseType::class, 'exercise_type_id');
+    }
 }

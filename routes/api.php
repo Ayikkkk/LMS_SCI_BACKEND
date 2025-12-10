@@ -21,8 +21,16 @@ Route::prefix('student')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
+        // Profile
         Route::get('/profile', [AuthController::class, 'profile']);
+        Route::put('/profile', [AuthController::class, 'updateProfile']);       // update profil (multipart/form-data)
+        Route::delete('/photo', [AuthController::class, 'deletePhoto']);       // hapus foto profil
+        Route::post('/change-password', [AuthController::class, 'changePassword']); // ganti password
+
+        // Logout
         Route::post('/logout', [AuthController::class, 'logout']);
+
+        // Dashboard
         Route::get('/dashboard', [DashboardController::class, 'index']);
 
         // ----------- CLASSROOMS -----------
@@ -45,7 +53,14 @@ Route::prefix('student')->group(function () {
         Route::post('/submit-task', [TaskController::class, 'store']);  // Kirim tugas baru
 
         // ----------- EXERCISES (Quiz / Latihan) -----------
-        Route::get('/exercises', [ExerciseController::class, 'index']); // List quiz
+        // NEW: daftar lessons (mapel) yang punya exercises untuk siswa (untuk tampilan card + tipe)
+        Route::get('/exercise-lessons', [ExerciseController::class, 'index']);
+
+        // NEW: daftar exercises untuk lesson tertentu, optional query ?type_id=...
+        Route::get('/lesson/{lessonId}/exercises', [ExerciseController::class, 'exercisesByLesson']);
+
+        // Existing endpoints (tetap ada untuk backward compatibility)
+        Route::get('/exercises', [ExerciseController::class, 'index_old'] ?? [ExerciseController::class, 'index']);
         Route::get('/exercises/{id}', [ExerciseController::class, 'show']); // Detail quiz
         Route::post('/exercises/{id}/submit', [ExerciseController::class, 'submit']); // Kirim jawaban
         Route::get('/exercises/{id}/result', [ExerciseController::class, 'result']);   // Lihat hasil
@@ -58,6 +73,7 @@ Route::prefix('student')->group(function () {
         Route::get('/reports', [ReportController::class, 'index']);
         Route::post('/reports', [ReportController::class, 'store']);
         Route::get('/reports/{id}', [ReportController::class, 'show']);
+        Route::get('/reports/check/today', [ReportController::class, 'checkToday']);
 
         // ----------- GRADES (Nilai) -----------
         Route::get('/grades/tasks', [GradeController::class, 'taskGrades']);
@@ -65,4 +81,3 @@ Route::prefix('student')->group(function () {
         Route::get('/grades/summary', [GradeController::class, 'summary']);
     });
 });
-

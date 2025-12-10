@@ -7,18 +7,82 @@ use Illuminate\Http\Request;
 use App\Models\Exercise;
 use App\Models\ExerciseItem;
 use App\Models\ExercisePoint;
+use App\Models\Lesson;
+use App\Models\ExerciseType;
 
 class ExerciseController extends Controller
 {
-    // 📄 Daftar semua latihan/quiz
+    // 📄 Daftar semua lesson (mapel) yang punya exercise untuk student
     public function index(Request $request)
     {
         $student = $request->user();
 
-        $exercises = Exercise::with('lesson')
-            ->where('serial_id', $student->serial_id)
-            ->orderBy('id', 'desc')
+        // Ambil lesson yang punya exercises untuk serial_id siswa
+        $lessons = Lesson::whereHas('exercises', function ($q) use ($student) {
+                $q->where('serial_id', $student->serial_id);
+            })
+            ->with(['exercises' => function ($q) use ($student) {
+                // hanya exercises untuk serial siswa, include tipe-nya
+                $q->where('serial_id', $student->serial_id)
+                  ->with('exerciseType');
+            }])
+            ->orderBy('name')
             ->get();
+
+        // Transform menjadi bentuk ringkas: lesson + list tipe exercise tersedia (dengan count)
+        $data = $lessons->map(function ($lesson) {
+            $types = $lesson->exercises
+                ->groupBy(function ($ex) {
+                    return $ex->exerciseType ? $ex->exerciseType->id : null;
+                })
+                ->map(function ($group, $key) {
+                    if ($key === null) {
+                        return null;
+                    }
+                    $type = $group->first()->exerciseType;
+                    return [
+                        'id' => $type->id,
+                        'kode' => $type->kode,
+                        'name' => $type->name,
+                        'count' => $group->count(),
+                    ];
+                })
+                ->filter() // hapus null
+                ->values();
+
+            return [
+                'id' => $lesson->id,
+                'mapel_id' => $lesson->mapel_id,
+                'name' => $lesson->name,
+                'grade' => $lesson->grade,
+                'semester' => $lesson->semester,
+                'category' => $lesson->category,
+                'types' => $types,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data
+        ]);
+    }
+
+    // 🔎 Daftar exercises untuk lesson tertentu & (opsional) type tertentu
+    // Endpoint: GET /api/student/lesson/{lessonId}/exercises?type_id=2
+    public function exercisesByLesson(Request $request, $lessonId)
+    {
+        $student = $request->user();
+        $typeId = $request->query('type_id');
+
+        $query = Exercise::with('exerciseType')
+            ->where('lesson_id', $lessonId)
+            ->where('serial_id', $student->serial_id);
+
+        if ($typeId) {
+            $query->where('exercise_type_id', $typeId);
+        }
+
+        $exercises = $query->orderBy('id', 'desc')->get();
 
         return response()->json([
             'success' => true,
@@ -26,7 +90,7 @@ class ExerciseController extends Controller
         ]);
     }
 
-    // 🔍 Detail quiz & soal
+    // 🔍 Detail quiz & soal (tidak berubah)
     public function show($id)
     {
         $exercise = Exercise::with('items')->find($id);
@@ -44,7 +108,7 @@ class ExerciseController extends Controller
         ]);
     }
 
-    // 📝 Kirim jawaban quiz
+    // 📝 Kirim jawaban quiz (tidak berubah selain validasi ringan)
     public function submit(Request $request, $id)
     {
         $student = $request->user();
@@ -69,7 +133,7 @@ class ExerciseController extends Controller
             }
         }
 
-        $score = round(($correctAnswers / $totalQuestions) * 100, 2);
+        $score = $totalQuestions > 0 ? round(($correctAnswers / $totalQuestions) * 100, 2) : 0;
 
         $point = ExercisePoint::create([
             'serial_id' => $student->serial_id,
@@ -87,7 +151,7 @@ class ExerciseController extends Controller
         ]);
     }
 
-    // 📊 Lihat hasil / nilai quiz
+    // 📊 Lihat hasil / nilai quiz (tetap sama)
     public function result(Request $request, $id)
     {
         $student = $request->user();
