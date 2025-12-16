@@ -18,35 +18,25 @@ class TaskController extends Controller
         $student = $request->user();
 
         $tasks = Task::where('student_id', $student->id)
-            ->with('assignment:id,title,due_date,mapel_id') // opsional: relasi assignment
+            ->with('post:id,title,due_date,mapel_id')
             ->orderBy('id', 'desc')
-            /*************  ✨ Windsurf Command ⭐  *************/
-            /**
-             * Buat tugas baru untuk siswa.
-             *
-             * @param Request $request
-             * @return \Illuminate\Http\JsonResponse
-             *
-             * @throws \Illuminate\Validation\ValidationException
-             * @throws \Illuminate\Http\Exceptions\ConflictException
-             */
-            /*******  715abc51-0301-4590-a692-dcd2fb4da358  *******/
             ->get()
             ->map(function ($task) {
                 return [
                     'id' => $task->id,
                     'post_id' => $task->post_id,
-                    'assignment_title' => optional($task->assignment)->title,
+                    'assignment_title' => optional($task->post)->title,
                     'description' => $task->description,
                     'attachment' => $task->attachment,
                     'submitted_at' => $task->created_at->format('Y-m-d H:i:s'),
-                    'status' => 'Sudah Dikerjakan',
+                    // Tambahkan baris di bawah ini
+                    'point' => $task->point ?? 0,
+                    'status' => $task->point > 0 ? 'Sudah Dinilai' : 'Sudah Dikerjakan',
                 ];
             });
 
         return response()->json($tasks);
     }
-
     /**
      * Menyimpan tugas baru (submit tugas).
      */

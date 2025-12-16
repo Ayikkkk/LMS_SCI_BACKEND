@@ -35,7 +35,7 @@ class PostController extends Controller
     }
 
     /**
-     * 📄 Ambil daftar tugas siswa (dengan status & file pengumpulan).
+     * 📄 Ambil daftar tugas siswa (Update: Ambil Nilai)
      */
     public function assignments(Request $request)
     {
@@ -55,14 +55,19 @@ class PostController extends Controller
                 'posts.*',
                 'mapels.name as subject_name',
                 'tasks.attachment as student_attachment',
+                'tasks.point', // ⬅️ TAMBAHKAN INI agar nilai terambil
                 DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted')
             )
             ->get()
             ->map(function ($assignment) {
-                // Tentukan status otomatis
-                $assignment->status = $assignment->is_submitted
-                    ? 'Sudah Mengumpulkan'
-                    : 'Belum Mengerjakan';
+                // Perbarui logika status: Jika ada nilai, status berubah
+                if ($assignment->is_submitted) {
+                    $assignment->status = ($assignment->point !== null && $assignment->point != "-")
+                        ? 'Sudah Dinilai'
+                        : 'Sudah Mengumpulkan';
+                } else {
+                    $assignment->status = 'Belum Mengerjakan';
+                }
                 return $assignment;
             });
 
@@ -73,8 +78,7 @@ class PostController extends Controller
     }
 
     /**
-     * 📘 Ambil detail satu tugas atau materi (termasuk status & file tugas jika tugas).
-     * * PERBAIKAN: Menggunakan key 'material' jika bukan tugas.
+     * 📘 Ambil detail satu tugas (Update: Ambil Nilai)
      */
     public function show(Request $request, $id)
     {
@@ -92,68 +96,77 @@ class PostController extends Controller
                 'posts.*',
                 'mapels.name as subject_name',
                 'tasks.attachment as student_attachment',
+                'tasks.point', // ⬅️ TAMBAHKAN INI
                 DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted')
             )
             ->first();
 
         if (!$post) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tugas atau materi tidak ditemukan.'
-            ], 404);
+            return response()->json(['success' => false, 'message' => 'Data tidak ditemukan.'], 404);
         }
 
         // Tentukan status otomatis
-        $post->status = $post->is_submitted
-            ? 'Sudah Mengumpulkan'
-            : 'Belum Mengerjakan';
-
-        if ($post->is_task) {
-            // Jika itu tugas, gunakan key 'assignment'
-            return response()->json([
-                'success' => true,
-                'assignment' => $post
-            ]);
+        if ($post->is_submitted) {
+            $post->status = ($post->point !== null && $post->point != "-")
+                ? 'Sudah Dinilai'
+                : 'Sudah Mengumpulkan';
         } else {
-            // Jika itu materi, gunakan key 'material'
-            // Ini yang akan dipanggil oleh rute /posts/{id} untuk materi.
-            return response()->json([
-                'success' => true,
-                'material' => $post
-            ]);
+            $post->status = 'Belum Mengerjakan';
         }
+
+        return response()->json([
+            'success' => true,
+            $post->is_task ? 'assignment' : 'material' => $post
+        ]);
     }
 
 
     //tambah data posts
     public function store(Request $request)
     {
-
-        // Validasi
+        // =========================
+        // VALIDASI
+        // =========================
         $validated = $request->validate([
-            'mapel_id'   => 'required|integer',
-            'title'      => 'required|string|max:255',
+            'mapel_id'    => 'required|integer',
+            'title'       => 'required|string|max:255',
             'description' => 'nullable|string',
-            'link'       => 'nullable|string',
-            'is_task'    => 'required|boolean',
-            'attachment' => 'nullable|file|mimes:pdf,jpg,jpeg,png,mp4,doc,docx|max:20480',
-            'due_date'  => 'nullable|date',
-            // Tambahan
-            'serial_id'  => 'required|integer',
-            'user_id'    => 'required|integer',
+            'link'        => 'nullable|string',
+            'is_task'     => 'required|boolean',
+            'attachment'  => 'nullable|file|mimes:pdf,jpg,jpeg,png,mp4,doc,docx|max:20480',
+            'due_date'    => 'nullable|date',
+            'serial_id'   => 'required|integer',
+            'user_id'     => 'required|integer',
         ]);
+
         $slug = Str::slug($validated['title'] . '-' . time());
-        // Upload file
+
+        // =========================
+        // UPLOAD FILE (FIX 403)
+        // =========================
         $attachmentPath = null;
+
         if ($request->hasFile('attachment')) {
             $file = $request->file('attachment');
-            $fileName = $file->getClientOriginalName(); // nama file custom
-            $file->storeAs('posts', $fileName, 'public');
-            $attachmentPath = $fileName; // hanya nama file
+
+            // 🔐 AMANKAN NAMA FILE (TANPA SPASI & KARAKTER ANEH)
+            $originalName = $file->getClientOriginalName();
+            $extension = $file->getClientOriginalExtension();
+            $baseName = pathinfo($originalName, PATHINFO_FILENAME);
+
+            $safeFileName =
+                time() . '_' . Str::slug($baseName) . '.' . $extension;
+
+            // SIMPAN KE storage/app/public/posts
+            $path = $file->storeAs('posts', $safeFileName, 'public');
+            // SIMPAN PATH RELATIF UNTUK FLUTTER
+            $attachmentPath = $path;
         }
 
-        // Simpan ke database
-        $post = Post::create([
+        // =========================
+        // SIMPAN DATABASE
+        // =========================
+        Post::create([
             'serial_id'   => $validated['serial_id'],
             'user_id'     => $validated['user_id'],
             'mapel_id'    => $validated['mapel_id'],
@@ -168,7 +181,6 @@ class PostController extends Controller
 
         return back()->with('success', 'Berhasil menambah data!');
     }
-
 
     public function create()
     {
