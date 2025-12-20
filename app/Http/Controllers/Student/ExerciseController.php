@@ -19,12 +19,12 @@ class ExerciseController extends Controller
 
         // Ambil lesson yang punya exercises untuk serial_id siswa
         $lessons = Lesson::whereHas('exercises', function ($q) use ($student) {
-                $q->where('serial_id', $student->serial_id);
-            })
+            $q->where('serial_id', $student->serial_id);
+        })
             ->with(['exercises' => function ($q) use ($student) {
                 // hanya exercises untuk serial siswa, include tipe-nya
                 $q->where('serial_id', $student->serial_id)
-                  ->with('exerciseType');
+                    ->with('exerciseType');
             }])
             ->orderBy('name')
             ->get();
@@ -67,8 +67,7 @@ class ExerciseController extends Controller
         ]);
     }
 
-    // 🔎 Daftar exercises untuk lesson tertentu & (opsional) type tertentu
-    // Endpoint: GET /api/student/lesson/{lessonId}/exercises?type_id=2
+    // 📄 Daftar exercise untuk lesson tertentu, optional filter by type_id
     public function exercisesByLesson(Request $request, $lessonId)
     {
         $student = $request->user();
@@ -90,7 +89,7 @@ class ExerciseController extends Controller
         ]);
     }
 
-    // 🔍 Detail quiz & soal (tidak berubah)
+    // Detail quiz & soal (tidak berubah)
     public function show($id)
     {
         $exercise = Exercise::with('items')->find($id);
@@ -108,50 +107,94 @@ class ExerciseController extends Controller
         ]);
     }
 
-    // 📝 Kirim jawaban quiz (tidak berubah selain validasi ringan)
+    // Kirim jawaban quiz
+    // 📝 Kirim jawaban quiz (FINAL - TANPA SIMPAN WAKTU)
+    // 📝 Kirim jawaban quiz (FINAL & BENAR)
     public function submit(Request $request, $id)
     {
         $student = $request->user();
 
-        $request->validate([
-            'answers' => 'required|array', // format: [{"question_id":1,"answer":"A"}]
-        ]);
+        // 🔒 CEK SUDAH PERNAH MENGERJAKAN
+        $existing = ExercisePoint::where('exercise_id', $id)
+            ->where('student_id', $student->id)
+            ->first();
 
-        $exercise = Exercise::find($id);
-        if (!$exercise) {
-            return response()->json(['message' => 'Latihan tidak ditemukan'], 404);
+        if ($existing) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Quiz sudah pernah dikerjakan',
+                'data' => $existing
+            ], 403);
         }
 
-        $totalQuestions = count($request->answers);
+        $validated = $request->validate([
+            'answers' => 'required|array', // {question_id: option}
+        ]);
+
+        $answers = $validated['answers'];
+        $totalQuestions = count($answers);
         $correctAnswers = 0;
 
-        foreach ($request->answers as $ans) {
-            $question = ExerciseItem::find($ans['question_id']);
+        foreach ($answers as $questionId => $selectedOption) {
+            $question = ExerciseItem::find($questionId);
+            if (!$question) {
+                continue;
+            }
 
-            if ($question && strtolower(trim($question->answer)) == strtolower(trim($ans['answer']))) {
+            // ===== NORMALISASI JAWABAN SISWA =====
+            $studentAnswer = strtolower(trim($selectedOption)); // a,b,c,d
+
+            // ===== NORMALISASI JAWABAN BENAR =====
+            $correctAnswer = strtolower(trim($question->answer));
+
+            // jika bentuk "option_a"
+            if (str_contains($correctAnswer, 'option_')) {
+                $correctAnswer = str_replace('option_', '', $correctAnswer);
+            }
+
+            // jika JSON ["a"]
+            if (str_starts_with($correctAnswer, '[')) {
+                try {
+                    $parsed = json_decode($correctAnswer, true);
+                    if (is_array($parsed) && count($parsed) > 0) {
+                        $correctAnswer = strtolower(trim($parsed[0]));
+                    }
+                } catch (\Exception $e) {
+                    // ignore
+                }
+            }
+
+            if ($studentAnswer === $correctAnswer) {
                 $correctAnswers++;
             }
         }
 
-        $score = $totalQuestions > 0 ? round(($correctAnswers / $totalQuestions) * 100, 2) : 0;
+        // ===== HITUNG NILAI =====
+        if ($totalQuestions === 0) {
+            $score = 0;
+        } elseif ($correctAnswers === $totalQuestions) {
+            $score = 100;
+        } else {
+            $score = round(($correctAnswers / $totalQuestions) * 100);
+        }
 
         $point = ExercisePoint::create([
             'serial_id' => $student->serial_id,
-            'exercise_id' => $exercise->id,
+            'exercise_id' => $id,
             'student_id' => $student->id,
-            'answer' => json_encode($request->answers),
+            'answer' => json_encode($answers),
             'exercise_point' => $score,
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Jawaban berhasil dikirim',
+            'message' => 'Quiz berhasil dikirim',
             'score' => $score,
             'data' => $point
         ]);
     }
 
-    // 📊 Lihat hasil / nilai quiz (tetap sama)
+    // Lihat hasil / nilai quiz (tetap sama)
     public function result(Request $request, $id)
     {
         $student = $request->user();
