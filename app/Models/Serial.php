@@ -47,9 +47,8 @@ class Serial extends Model
         return $this->hasMany(Report::class, 'serial_id');
     }
 
-    // Serial punya banyak meeting (kelas online)
-    public function meetings()
+    public function classrooms()
     {
-        return $this->hasMany(OnlineMeeting::class, 'serial_id');
+        return $this->hasMany(Classroom::class, 'serial_id');
     }
 }

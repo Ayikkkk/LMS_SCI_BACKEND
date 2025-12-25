@@ -15,25 +15,50 @@ class DashboardController extends Controller
     {
         $student = $request->user();
 
-        // Jumlah tugas yang sudah dikumpulkan
+        // ===============================
+        // STATISTIK
+        // ===============================
+
         $totalTasks = Task::where('student_id', $student->id)->count();
 
-        // Jumlah latihan (quiz) yang sudah dikerjakan
         $totalExercises = ExercisePoint::where('student_id', $student->id)->count();
 
-        // Nilai rata-rata
-        $avgTask = Task::where('student_id', $student->id)->avg('point');
-        $avgExercise = ExercisePoint::where('student_id', $student->id)->avg('exercise_point');
+        $avgTask = Task::where('student_id', $student->id)->avg('point') ?? 0;
 
-        // Jumlah laporan harian
+        $avgExercise = ExercisePoint::where('student_id', $student->id)
+            ->avg('exercise_point') ?? 0;
+
         $reportCount = Report::where('student_id', $student->id)->count();
 
-        // Meeting hari ini
-        $today = now()->format('Y-m-d');
-        $meetingsToday = OnlineMeeting::where('classroom_id', $student->classroom_id)
-            ->whereDate('start_time', $today)
+        // ===============================
+        // MEETING HARI INI
+        // ===============================
+
+        $meetingsToday = OnlineMeeting::query()
+            ->where('classroom_id', $student->classroom_id)
+            ->whereDate('start_time', now()->toDateString())
             ->orderBy('start_time', 'asc')
-            ->get(['id', 'title', 'platform', 'meeting_link', 'start_time', 'end_time', 'status']);
+            ->get([
+                'id',
+                'title',
+                'start_time',
+                'end_time',
+                'status',
+            ])
+            ->map(function ($meeting) {
+                return [
+                    'id' => $meeting->id,
+                    'title' => $meeting->title,
+                    'platform' => 'Jitsi Meet', // 🔥 LOGIC, BUKAN DB
+                    'start_time' => $meeting->start_time,
+                    'end_time' => $meeting->end_time,
+                    'status' => $meeting->status,
+                ];
+            });
+
+        // ===============================
+        // RESPONSE
+        // ===============================
 
         return response()->json([
             'success' => true,
@@ -43,17 +68,17 @@ class DashboardController extends Controller
                     'name' => $student->name,
                     'username' => $student->username,
                     'email' => $student->email,
-                    'classroom_name' => $student->classroom->name,
+                    'className' => optional($student->classroom)->name,
                 ],
                 'stats' => [
                     'total_tasks' => $totalTasks,
                     'total_exercises' => $totalExercises,
-                    'average_task_score' => round($avgTask ?? 0, 2),
-                    'average_exercise_score' => round($avgExercise ?? 0, 2),
+                    'average_task_score' => round($avgTask, 2),
+                    'average_exercise_score' => round($avgExercise, 2),
                     'report_count' => $reportCount,
                 ],
                 'meetings_today' => $meetingsToday,
-            ]
+            ],
         ]);
     }
 }

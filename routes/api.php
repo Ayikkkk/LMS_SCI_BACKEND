@@ -66,8 +66,13 @@ Route::prefix('student')->group(function () {
         Route::get('/exercises/{id}/result', [ExerciseController::class, 'result']);   // Lihat hasil
 
         // ----------- MEETINGS (Kelas Online) -----------
+        // List meeting berdasarkan classroom siswa
         Route::get('/meetings', [MeetingController::class, 'index']);
+        // Detail meeting
         Route::get('/meetings/{id}', [MeetingController::class, 'show']);
+        // Join meeting (absensi + generate Jitsi URL)
+        Route::post('/meetings/{id}/join', [MeetingController::class, 'join']);
+
 
         // ----------- DAILY REPORTS -----------
         Route::get('/reports', [ReportController::class, 'index']);

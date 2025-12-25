@@ -34,5 +34,8 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+    'jitsi' => [
+        'domain' => env('JITSI_DOMAIN', 'https://meet.jit.si'),
+    ],
 
 ];

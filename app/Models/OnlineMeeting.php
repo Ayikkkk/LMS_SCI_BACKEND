@@ -10,31 +10,31 @@ class OnlineMeeting extends Model
     use HasFactory;
 
     protected $fillable = [
-        'serial_id',
         'classroom_id',
-        'user_id',
+        'user_id',        // guru
         'title',
         'description',
         'meeting_code',
-        'meeting_link',
-        'platform',
         'start_time',
         'end_time',
         'status',
     ];
 
-    public function serial()
-    {
-        return $this->belongsTo(Serial::class, 'serial_id');
-    }
-
+    // Relasi ke kelas
     public function classroom()
     {
         return $this->belongsTo(Classroom::class, 'classroom_id');
     }
 
+    // Relasi ke guru
     public function user()
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    // Relasi ke peserta (siswa & guru)
+    public function participants()
+    {
+        return $this->hasMany(OnlineMeetingParticipant::class);
     }
 }
