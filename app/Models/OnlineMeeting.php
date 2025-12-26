@@ -11,7 +11,7 @@ class OnlineMeeting extends Model
 
     protected $fillable = [
         'classroom_id',
-        'user_id',        // guru
+        'user_id', // guru
         'title',
         'description',
         'meeting_code',
@@ -20,21 +20,22 @@ class OnlineMeeting extends Model
         'status',
     ];
 
-    // Relasi ke kelas
     public function classroom()
     {
-        return $this->belongsTo(Classroom::class, 'classroom_id');
+        return $this->belongsTo(Classroom::class);
     }
 
-    // Relasi ke guru
-    public function user()
+    public function teacher()
     {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    // Relasi ke peserta (siswa & guru)
     public function participants()
     {
-        return $this->hasMany(OnlineMeetingParticipant::class);
+        return $this->hasMany(
+            OnlineMeetingParticipant::class,
+            'online_meeting_id', // Foreign Key di participant
+            'id' // Primary Key di online_meetings
+        );
     }
 }

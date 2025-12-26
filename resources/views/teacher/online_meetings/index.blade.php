@@ -20,21 +20,21 @@
                 Status: <strong>{{ strtoupper($meeting->status) }}</strong>
             </p>
 
-
             @if ($meeting->status === 'upcoming')
-            <form method="POST" action="/teacher/online-meetings/{{ $meeting->id }}/start">
+            <form method="POST" action="{{ route('teacher.meetings.start', $meeting->id) }}">
                 @csrf
-                <button class="btn btn-success">
-                    Mulai Meeting
-                </button>
+                <input type="hidden" name="online_meeting_id" value="{{ $meeting->id }}">
+                <button class="btn btn-success">Mulai Meeting</button>
             </form>
+
+
             @elseif ($meeting->status === 'live')
-            <form method="POST" action="/teacher/online-meetings/{{ $meeting->id }}/end">
+            <form method="POST" action="{{ route('teacher.meetings.end', $meeting->id) }}">
                 @csrf
-                <button class="btn btn-danger">
-                    Akhiri Meeting
-                </button>
+                <input type="hidden" name="online_meeting_id" value="{{ $meeting->id }}">
+                <button class="btn btn-danger">Akhiri Meeting</button>
             </form>
+
             @endif
         </div>
     </div>

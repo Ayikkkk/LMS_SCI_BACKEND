@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use App\Models\OnlineMeeting;
@@ -16,8 +17,7 @@ class OnlineMeetingController extends Controller
 {
     public function index()
     {
-        // TES: guru ID = 1 (karena belum pakai auth)
-        $teacher = User::findOrFail(1);
+        $teacher = Auth::user() ?? User::findOrFail(1);
 
         $meetings = OnlineMeeting::with('classroom')
             ->where('user_id', $teacher->id)
@@ -29,13 +29,9 @@ class OnlineMeetingController extends Controller
 
     public function create()
     {
-        // TES: guru ID = 1
-        $teacher = User::findOrFail(1);
-
-        // Ambil serial milik guru
+        $teacher = Auth::user() ?? User::findOrFail(1);
         $serial = Serial::where('user_id', $teacher->id)->firstOrFail();
 
-        // Ambil classroom dari serial
         $classrooms = Classroom::where('serial_id', $serial->id)
             ->orderBy('name')
             ->get();
@@ -51,13 +47,10 @@ class OnlineMeetingController extends Controller
             'start_time'   => 'required|date',
         ]);
 
-        // TES: guru ID = 1
-        $teacher = User::findOrFail(1);
+        $teacher = Auth::user() ?? User::findOrFail(1);
 
-        // Ambil serial guru
         $serial = Serial::where('user_id', $teacher->id)->firstOrFail();
 
-        // Validasi classroom milik serial guru
         $classroom = Classroom::where('id', $request->classroom_id)
             ->where('serial_id', $serial->id)
             ->firstOrFail();
@@ -78,24 +71,39 @@ class OnlineMeetingController extends Controller
 
     public function start($id)
     {
-        $teacher = User::findOrFail(1);
+        $teacher = Auth::user() ?? User::findOrFail(1);
 
         $meeting = OnlineMeeting::where('id', $id)
             ->where('user_id', $teacher->id)
             ->firstOrFail();
 
         $meeting->update([
-            'status' => 'live'
+            'status' => 'live',
+            'start_time' => now()
         ]);
 
-        $jitsiUrl = config('services.jitsi.domain') . '/' . $meeting->meeting_code;
+        $record = $meeting->participants()->updateOrCreate(
+            [
+                'online_meeting_id' => $meeting->id,
+                'user_id' => $teacher->id,
+            ],
+            [
+                'role'      => 'teacher',
+                'joined_at' => now(),
+                'left_at'   => null,
+            ]
+        );
 
-        return redirect()->away($jitsiUrl);
+        Log::info('Guru JOIN Meeting:', $record->toArray());
+
+        return redirect()->away(
+            config('services.jitsi.domain') . '/' . $meeting->meeting_code
+        );
     }
 
     public function end($id)
     {
-        $teacher = User::findOrFail(1);
+        $teacher = Auth::user() ?? User::findOrFail(1);
 
         $meeting = OnlineMeeting::where('id', $id)
             ->where('user_id', $teacher->id)
@@ -103,8 +111,15 @@ class OnlineMeetingController extends Controller
 
         $meeting->update([
             'status'   => 'ended',
-            'end_time' => Carbon::now(),
+            'end_time' => now()
         ]);
+
+        $meeting->participants()
+            ->where('user_id', $teacher->id)
+            ->where('role', 'teacher') // Tambahkan filter wajib!
+            ->update([
+                'left_at' => now()
+            ]);
 
         return back()->with('success', 'Meeting telah diakhiri');
     }

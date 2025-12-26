@@ -72,6 +72,8 @@ Route::prefix('student')->group(function () {
         Route::get('/meetings/{id}', [MeetingController::class, 'show']);
         // Join meeting (absensi + generate Jitsi URL)
         Route::post('/meetings/{id}/join', [MeetingController::class, 'join']);
+        // Leave meeting (update waktu keluar)
+        Route::post('/meetings/{id}/leave', [MeetingController::class, 'leave']);
 
 
         // ----------- DAILY REPORTS -----------
