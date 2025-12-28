@@ -73,5 +73,18 @@ Route::prefix('student')->group(function () {
         Route::get('/grades/tasks', [GradeController::class, 'taskGrades']);
         Route::get('/grades/exercises', [GradeController::class, 'exerciseGrades']);
         Route::get('/grades/summary', [GradeController::class, 'summary']);
+
+        // ----------- COMMENTS -----------
+
+        // List + Create Comment
+        Route::get('/posts/{post}/comments', [\App\Http\Controllers\Student\PostCommentController::class, 'index']);
+        Route::post('/posts/{post}/comments', [\App\Http\Controllers\Student\PostCommentController::class, 'store']);
+
+        // Delete Comment
+        Route::delete('/comments/{comment}', [\App\Http\Controllers\Student\PostCommentController::class, 'destroy']);
+
+        // Reply Comment
+        Route::post('/comments/{comment}/reply', [\App\Http\Controllers\Student\PostChildCommentController::class, 'store']);
+        Route::delete('/replies/{reply}', [\App\Http\Controllers\Student\PostChildCommentController::class, 'destroy']);
     });
 });

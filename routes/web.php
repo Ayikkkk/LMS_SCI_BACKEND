@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Artisan;
 use App\Http\Controllers\Teacher\OnlineMeetingController;
 use App\Http\Controllers\Student\PostController;
+use App\Http\Controllers\Teacher\PostCommentController as TeacherPostCommentController;
+use App\Http\Controllers\Teacher\PostChildCommentController as TeacherPostChildCommentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +42,27 @@ Route::prefix('teacher')
         // End meeting (set ended + close participants)
         Route::post('/online-meetings/{id}/end', [OnlineMeetingController::class, 'end'])
             ->name('meetings.end');
+
+        // ================= POSTS COMMENTS ==================
+        // Comments list (JSON untuk testing)
+        Route::get('/posts/{post}/comments', [TeacherPostCommentController::class, 'index'])
+            ->name('comments.index');
+
+        // Create comment
+        Route::post('/posts/{post}/comments', [TeacherPostCommentController::class, 'store'])
+            ->name('comments.store');
+
+        // Delete comment
+        Route::delete('/comments/{comment}', [TeacherPostCommentController::class, 'destroy'])
+            ->name('comments.destroy');
+
+        // Create reply
+        Route::post('/comments/{comment}/reply', [TeacherPostChildCommentController::class, 'store'])
+            ->name('comments.reply.store');
+
+        // Delete reply
+        Route::delete('/replies/{reply}', [TeacherPostChildCommentController::class, 'destroy'])
+            ->name('comments.reply.destroy');
     });
 
 /*
