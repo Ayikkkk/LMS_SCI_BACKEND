@@ -8,6 +8,8 @@ use App\Models\PostComment;
 use App\Models\Post;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use Illuminate\Support\Str;
+
 
 class PostCommentController extends Controller
 {
@@ -24,9 +26,9 @@ class PostCommentController extends Controller
             'replies.student:id,name,photo',
             'replies.user:id,name,img'
         ])
-        ->where('post_id', $post->id)
-        ->orderBy('created_at', 'ASC')
-        ->get();
+            ->where('post_id', $post->id)
+            ->orderBy('created_at', 'ASC')
+            ->get();
 
         return view('teacher.comments.index', compact('post', 'comments'));
     }
@@ -40,7 +42,8 @@ class PostCommentController extends Controller
             'post_id' => $post->id,
             'user_id' => $teacher->id,
             'message' => $request->message,
-            'is_user' => 1
+            'is_user' => 1,
+            'code' => Str::uuid() // 🔥 generate unique
         ]);
 
         return back()->with('success', 'Komentar guru ditambahkan');
