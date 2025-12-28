@@ -3,10 +3,9 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use App\Models\OnlineMeeting;
-use Carbon\Carbon;
+use App\Models\OnlineMeetingParticipant;
 
 class MeetingController extends Controller
 {
@@ -25,28 +24,12 @@ class MeetingController extends Controller
         ]);
     }
 
-    public function show($id)
-    {
-        $meeting = OnlineMeeting::find($id);
-
-        if (!$meeting) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Meeting tidak ditemukan'
-            ], 404);
-        }
-
-        return response()->json([
-            'success' => true,
-            'data' => $meeting
-        ]);
-    }
-
     public function join(Request $request, $id)
     {
         $student = $request->user();
         $meeting = OnlineMeeting::findOrFail($id);
 
+        // Validasi kelas
         if ($student->classroom_id !== $meeting->classroom_id) {
             return response()->json([
                 'success' => false,
@@ -54,22 +37,24 @@ class MeetingController extends Controller
             ], 403);
         }
 
+        // Jika meeting belum dimulai, JANGAN biarkan siswa memulai
         if ($meeting->status === 'upcoming') {
-            $meeting->update([
-                'status' => 'live',
-                'start_time' => now()
-            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Meeting belum dimulai oleh guru'
+            ], 403);
         }
 
-        $meeting->participants()->updateOrCreate(
+        // Insert / update participant siswa
+        OnlineMeetingParticipant::updateOrCreate(
             [
                 'online_meeting_id' => $meeting->id,
                 'user_id' => $student->id,
-                'role' => 'student'
             ],
             [
+                'role' => 'student',
                 'joined_at' => now(),
-                'left_at' => null
+                'left_at' => null,
             ]
         );
 
@@ -83,35 +68,12 @@ class MeetingController extends Controller
     public function leave(Request $request, $id)
     {
         $student = $request->user();
-        $meeting = OnlineMeeting::findOrFail($id);
 
-        Log::info("Student Leaving Meeting", [
-            'student_id' => $student->id ?? 'NULL',
-            'meeting_id' => $id
-        ]);
-
-        $participant = $meeting->participants()
+        OnlineMeetingParticipant::where('online_meeting_id', $id)
             ->where('user_id', $student->id)
-            ->where('role', 'student')
-            ->first();
-
-        if (!$participant) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Data participant tidak ditemukan'
-            ], 404);
-        }
-
-        // Durasi minimal agar dianggap benar keluar
-        $minDuration = 10; // 10 detik
-
-        if ($participant->left_at === null) {
-            if ($participant->joined_at->diffInSeconds(now()) >= $minDuration) {
-                $participant->update([
-                    'left_at' => now()
-                ]);
-            }
-        }
+            ->update([
+                'left_at' => now()
+            ]);
 
         return response()->json([
             'success' => true,

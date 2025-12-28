@@ -21,16 +21,15 @@ Route::prefix('student')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
 
     Route::middleware('auth:sanctum')->group(function () {
-        // Profile
-        Route::get('/profile', [AuthController::class, 'profile']);
-        Route::put('/profile', [AuthController::class, 'updateProfile']);       // update profil (multipart/form-data)
-        Route::delete('/photo', [AuthController::class, 'deletePhoto']);       // hapus foto profil
-        Route::post('/change-password', [AuthController::class, 'changePassword']); // ganti password
 
-        // Logout
+        // ----------- PROFILE -----------
+        Route::get('/profile', [AuthController::class, 'profile']);
+        Route::put('/profile', [AuthController::class, 'updateProfile']);
+        Route::delete('/photo', [AuthController::class, 'deletePhoto']);
+        Route::post('/change-password', [AuthController::class, 'changePassword']);
         Route::post('/logout', [AuthController::class, 'logout']);
 
-        // Dashboard
+        // ----------- DASHBOARD -----------
         Route::get('/dashboard', [DashboardController::class, 'index']);
 
         // ----------- CLASSROOMS -----------
@@ -38,43 +37,31 @@ Route::prefix('student')->group(function () {
         Route::get('/classrooms/{id}', [ClassroomController::class, 'show']);
 
         // ----------- POSTS & TASKS -----------
-        // Rute Materi (Match: /student/materials)
         Route::get('/materials', [PostController::class, 'materials']);
-        // Rute Tugas (Match: /student/assignments)
         Route::get('/assignments', [PostController::class, 'assignments']);
-
-        // Detail tugas atau materi berdasarkan ID
         Route::get('/assignments/{id}', [PostController::class, 'show']);
-        // Detail materi/tugas
         Route::get('/posts/{id}', [PostController::class, 'show']);
 
         // ----------- STUDENT TASK SUBMISSION -----------
-        Route::get('/my-tasks', [TaskController::class, 'index']);      // Riwayat tugas siswa
-        Route::post('/submit-task', [TaskController::class, 'store']);  // Kirim tugas baru
+        Route::get('/my-tasks', [TaskController::class, 'index']);
+        Route::post('/submit-task', [TaskController::class, 'store']);
 
-        // ----------- EXERCISES (Quiz / Latihan) -----------
-        // NEW: daftar lessons (mapel) yang punya exercises untuk siswa (untuk tampilan card + tipe)
+        // ----------- EXERCISES -----------
         Route::get('/exercise-lessons', [ExerciseController::class, 'index']);
-
-        // NEW: daftar exercises untuk lesson tertentu, optional query ?type_id=...
         Route::get('/lesson/{lessonId}/exercises', [ExerciseController::class, 'exercisesByLesson']);
+        Route::get('/exercises', [ExerciseController::class, 'index_old']);
+        Route::get('/exercises/{id}', [ExerciseController::class, 'show']);
+        Route::post('/exercises/{id}/submit', [ExerciseController::class, 'submit']);
+        Route::get('/exercises/{id}/result', [ExerciseController::class, 'result']);
 
-        // Existing endpoints (tetap ada untuk backward compatibility)
-        Route::get('/exercises', [ExerciseController::class, 'index_old'] ?? [ExerciseController::class, 'index']);
-        Route::get('/exercises/{id}', [ExerciseController::class, 'show']); // Detail quiz
-        Route::post('/exercises/{id}/submit', [ExerciseController::class, 'submit']); // Kirim jawaban
-        Route::get('/exercises/{id}/result', [ExerciseController::class, 'result']);   // Lihat hasil
-
-        // ----------- MEETINGS (Kelas Online) -----------
-        // List meeting berdasarkan classroom siswa
+        // ----------- MEETINGS (ONLINE CLASS) -----------
         Route::get('/meetings', [MeetingController::class, 'index']);
-        // Detail meeting
-        Route::get('/meetings/{id}', [MeetingController::class, 'show']);
-        // Join meeting (absensi + generate Jitsi URL)
-        Route::post('/meetings/{id}/join', [MeetingController::class, 'join']);
-        // Leave meeting (update waktu keluar)
-        Route::post('/meetings/{id}/leave', [MeetingController::class, 'leave']);
 
+        // JOIN meeting (insert participant siswa)
+        Route::post('/meetings/{id}/join', [MeetingController::class, 'join']);
+
+        // LEAVE meeting (update left_at)
+        Route::post('/meetings/{id}/leave', [MeetingController::class, 'leave']);
 
         // ----------- DAILY REPORTS -----------
         Route::get('/reports', [ReportController::class, 'index']);
@@ -82,7 +69,7 @@ Route::prefix('student')->group(function () {
         Route::get('/reports/{id}', [ReportController::class, 'show']);
         Route::get('/reports/check/today', [ReportController::class, 'checkToday']);
 
-        // ----------- GRADES (Nilai) -----------
+        // ----------- GRADES -----------
         Route::get('/grades/tasks', [GradeController::class, 'taskGrades']);
         Route::get('/grades/exercises', [GradeController::class, 'exerciseGrades']);
         Route::get('/grades/summary', [GradeController::class, 'summary']);

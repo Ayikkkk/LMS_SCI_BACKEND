@@ -5,19 +5,29 @@ namespace App\Http\Controllers\Teacher;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+
 use App\Models\OnlineMeeting;
+use App\Models\OnlineMeetingParticipant;
 use App\Models\Classroom;
 use App\Models\Serial;
 use App\Models\User;
 
 class OnlineMeetingController extends Controller
 {
+    /**
+     * Temporary fallback untuk testing
+     * ⚠️ PRODUKSI: hapus User::findOrFail(1)
+     */
+    private function getTeacher()
+    {
+        return Auth::user() ?? User::findOrFail(1);
+    }
+
     public function index()
     {
-        $teacher = Auth::user() ?? User::findOrFail(1);
+        $teacher = $this->getTeacher();
 
         $meetings = OnlineMeeting::with('classroom')
             ->where('user_id', $teacher->id)
@@ -29,10 +39,11 @@ class OnlineMeetingController extends Controller
 
     public function create()
     {
-        $teacher = Auth::user() ?? User::findOrFail(1);
-        $serial = Serial::where('user_id', $teacher->id)->firstOrFail();
+        $teacher = $this->getTeacher();
 
-        $classrooms = Classroom::where('serial_id', $serial->id)
+        $serials = Serial::where('user_id', $teacher->id)->get();
+
+        $classrooms = Classroom::whereIn('serial_id', $serials->pluck('id'))
             ->orderBy('name')
             ->get();
 
@@ -41,27 +52,34 @@ class OnlineMeetingController extends Controller
 
     public function store(Request $request)
     {
+        $teacher = $this->getTeacher();
+
         $request->validate([
-            'classroom_id' => 'required|integer',
+            'classroom_id' => 'required|exists:classrooms,id',
             'title'        => 'required|string|max:150',
             'start_time'   => 'required|date',
         ]);
 
-        $teacher = Auth::user() ?? User::findOrFail(1);
+        $classroom = Classroom::findOrFail($request->classroom_id);
 
-        $serial = Serial::where('user_id', $teacher->id)->firstOrFail();
-
-        $classroom = Classroom::where('id', $request->classroom_id)
-            ->where('serial_id', $serial->id)
-            ->firstOrFail();
+        /**
+         * 🔥 PENTING
+         * Input guru = WIB
+         * Simpan ke DB = UTC
+         */
+        $startTimeUtc = Carbon::parse(
+            $request->start_time,
+            'Asia/Jakarta'
+        )->utc();
 
         OnlineMeeting::create([
+            'serial_id'    => $classroom->serial_id,
             'classroom_id' => $classroom->id,
             'user_id'      => $teacher->id,
             'title'        => $request->title,
             'description'  => $request->description,
             'meeting_code' => 'meet-' . Str::random(10),
-            'start_time'   => $request->start_time,
+            'start_time'   => $startTimeUtc,
             'status'       => 'upcoming',
         ]);
 
@@ -71,30 +89,30 @@ class OnlineMeetingController extends Controller
 
     public function start($id)
     {
-        $teacher = Auth::user() ?? User::findOrFail(1);
+        $teacher = $this->getTeacher();
 
         $meeting = OnlineMeeting::where('id', $id)
             ->where('user_id', $teacher->id)
             ->firstOrFail();
 
+        // Set meeting LIVE (UTC)
         $meeting->update([
-            'status' => 'live',
-            'start_time' => now()
+            'status'     => 'live',
+            'start_time' => now()->utc(),
         ]);
 
-        $record = $meeting->participants()->updateOrCreate(
+        // Catat guru sebagai participant
+        OnlineMeetingParticipant::updateOrCreate(
             [
                 'online_meeting_id' => $meeting->id,
-                'user_id' => $teacher->id,
+                'user_id'           => $teacher->id,
             ],
             [
                 'role'      => 'teacher',
-                'joined_at' => now(),
+                'joined_at' => now()->utc(),
                 'left_at'   => null,
             ]
         );
-
-        Log::info('Guru JOIN Meeting:', $record->toArray());
 
         return redirect()->away(
             config('services.jitsi.domain') . '/' . $meeting->meeting_code
@@ -103,7 +121,7 @@ class OnlineMeetingController extends Controller
 
     public function end($id)
     {
-        $teacher = Auth::user() ?? User::findOrFail(1);
+        $teacher = $this->getTeacher();
 
         $meeting = OnlineMeeting::where('id', $id)
             ->where('user_id', $teacher->id)
@@ -111,14 +129,14 @@ class OnlineMeetingController extends Controller
 
         $meeting->update([
             'status'   => 'ended',
-            'end_time' => now()
+            'end_time' => now()->utc(),
         ]);
 
-        $meeting->participants()
-            ->where('user_id', $teacher->id)
-            ->where('role', 'teacher') // Tambahkan filter wajib!
+        // Tutup semua participant yang belum leave
+        OnlineMeetingParticipant::where('online_meeting_id', $meeting->id)
+            ->whereNull('left_at')
             ->update([
-                'left_at' => now()
+                'left_at' => now()->utc(),
             ]);
 
         return back()->with('success', 'Meeting telah diakhiri');

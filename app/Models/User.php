@@ -2,63 +2,71 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
+        'role',
+        'address',
+        'phone',
+        'img',
+        'login_at',
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
     /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
+     * Cast attributes automatically
      */
-    protected function casts(): array
+    protected $casts = [
+        'login_at' => 'datetime',
+    ];
+
+    /**
+     * Gunakan username untuk autentikasi login, bukan email
+     */
+    public function username()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        return 'username';
     }
 
-    public function student()
+    /**
+     * RELATIONS
+     */
+
+    // Guru memiliki banyak siswa (melalui serial & kelas)
+    public function students()
     {
         return $this->hasMany(Student::class);
     }
 
-    public function classroom()
+    // Guru memiliki banyak kelas
+    public function classrooms()
     {
         return $this->hasMany(Classroom::class);
     }
 
+    // Guru sebagai pembuat meeting
+    public function onlineMeetings()
+    {
+        return $this->hasMany(OnlineMeeting::class, 'user_id', 'id');
+    }
+
+    // Jika ada posts (fitur lain)
     public function posts()
     {
         return $this->hasMany(Post::class);
     }
 }
-
