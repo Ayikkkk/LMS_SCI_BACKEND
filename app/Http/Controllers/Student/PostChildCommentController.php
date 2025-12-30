@@ -59,4 +59,43 @@ class PostChildCommentController extends Controller
             'message' => 'Balasan dihapus'
         ]);
     }
+
+    public function update(Request $request, PostChildComment $reply)
+    {
+        $request->validate([
+            'message' => 'required'
+        ]);
+
+        // Ambil student berdasarkan token
+        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Autentikasi siswa gagal'
+            ], 403);
+        }
+
+        // Cek kepemilikan
+        if ($reply->student_id != $student->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak diizinkan'
+            ], 403);
+        }
+
+        // Update Message
+        $reply->update([
+            'message' => $request->message
+        ]);
+
+        // Reload relasi supaya langsung update tampilan UI
+        $reply->load(['student:id,name,photo', 'user:id,name,img']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Balasan diperbarui',
+            'data' => $reply
+        ]);
+    }
 }

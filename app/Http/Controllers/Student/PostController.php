@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 class PostController extends Controller
 {
     /**
-     * 📘 Ambil daftar materi siswa.
+     * 📘 Ambil daftar materi siswa
      */
     public function materials(Request $request)
     {
@@ -35,7 +35,7 @@ class PostController extends Controller
     }
 
     /**
-     * 📄 Ambil daftar tugas siswa (Update: Ambil Nilai)
+     * 📄 Ambil daftar tugas siswa
      */
     public function assignments(Request $request)
     {
@@ -54,21 +54,21 @@ class PostController extends Controller
             ->select(
                 'posts.*',
                 'mapels.name as subject_name',
+                'tasks.id as task_id',
                 'tasks.attachment as student_attachment',
-                'tasks.point', // ⬅️ TAMBAHKAN INI agar nilai terambil
+                'tasks.point',
                 DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted')
             )
             ->get()
-            ->map(function ($assignment) {
-                // Perbarui logika status: Jika ada nilai, status berubah
-                if ($assignment->is_submitted) {
-                    $assignment->status = ($assignment->point !== null && $assignment->point != "-")
+            ->map(function ($ass) {
+                if ($ass->is_submitted) {
+                    $ass->status = ($ass->point !== null)
                         ? 'Sudah Dinilai'
-                        : 'Sudah Mengumpulkan';
+                        : 'Belum Dinilai';
                 } else {
-                    $assignment->status = 'Belum Mengerjakan';
+                    $ass->status = 'Belum Mengerjakan';
                 }
-                return $assignment;
+                return $ass;
             });
 
         return response()->json([
@@ -78,7 +78,7 @@ class PostController extends Controller
     }
 
     /**
-     * 📘 Ambil detail satu tugas (Update: Ambil Nilai)
+     * 📘 Ambil detail satu tugas
      */
     public function show(Request $request, $id)
     {
@@ -95,8 +95,9 @@ class PostController extends Controller
             ->select(
                 'posts.*',
                 'mapels.name as subject_name',
+                'tasks.id as task_id',
                 'tasks.attachment as student_attachment',
-                'tasks.point', // ⬅️ TAMBAHKAN INI
+                'tasks.point',
                 DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted')
             )
             ->first();
@@ -105,11 +106,10 @@ class PostController extends Controller
             return response()->json(['success' => false, 'message' => 'Data tidak ditemukan.'], 404);
         }
 
-        // Tentukan status otomatis
         if ($post->is_submitted) {
-            $post->status = ($post->point !== null && $post->point != "-")
+            $post->status = ($post->point !== null)
                 ? 'Sudah Dinilai'
-                : 'Sudah Mengumpulkan';
+                : 'Belum Dinilai';
         } else {
             $post->status = 'Belum Mengerjakan';
         }
@@ -120,13 +120,11 @@ class PostController extends Controller
         ]);
     }
 
-
-    //tambah data posts
+    /**
+     * 📝 Tambah data Post
+     */
     public function store(Request $request)
     {
-        // =========================
-        // VALIDASI
-        // =========================
         $validated = $request->validate([
             'mapel_id'    => 'required|integer',
             'title'       => 'required|string|max:255',
@@ -140,32 +138,14 @@ class PostController extends Controller
         ]);
 
         $slug = Str::slug($validated['title'] . '-' . time());
-
-        // =========================
-        // UPLOAD FILE (FIX 403)
-        // =========================
         $attachmentPath = null;
 
         if ($request->hasFile('attachment')) {
             $file = $request->file('attachment');
-
-            // 🔐 AMANKAN NAMA FILE (TANPA SPASI & KARAKTER ANEH)
-            $originalName = $file->getClientOriginalName();
-            $extension = $file->getClientOriginalExtension();
-            $baseName = pathinfo($originalName, PATHINFO_FILENAME);
-
-            $safeFileName =
-                time() . '_' . Str::slug($baseName) . '.' . $extension;
-
-            // SIMPAN KE storage/app/public/posts
-            $path = $file->storeAs('posts', $safeFileName, 'public');
-            // SIMPAN PATH RELATIF UNTUK FLUTTER
-            $attachmentPath = $path;
+            $safeName = time() . '_' . Str::slug(pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)) . '.' . $file->getClientOriginalExtension();
+            $attachmentPath = $file->storeAs('posts', $safeName, 'public');
         }
 
-        // =========================
-        // SIMPAN DATABASE
-        // =========================
         Post::create([
             'serial_id'   => $validated['serial_id'],
             'user_id'     => $validated['user_id'],
@@ -185,7 +165,6 @@ class PostController extends Controller
     public function create()
     {
         $mapels = \App\Models\Mapel::all();
-
         return view('posts.create', compact('mapels'));
     }
 }

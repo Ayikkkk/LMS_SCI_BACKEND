@@ -10,6 +10,8 @@ use App\Http\Controllers\Student\ReportController;
 use App\Http\Controllers\Student\MeetingController;
 use App\Http\Controllers\Student\GradeController;
 use App\Http\Controllers\Student\DashboardController;
+use App\Http\Controllers\Student\PostCommentController;
+use App\Http\Controllers\Student\PostChildCommentController;
 
 // =======================
 // STUDENT API ROUTES
@@ -86,5 +88,10 @@ Route::prefix('student')->group(function () {
         // Reply Comment
         Route::post('/comments/{comment}/reply', [\App\Http\Controllers\Student\PostChildCommentController::class, 'store']);
         Route::delete('/replies/{reply}', [\App\Http\Controllers\Student\PostChildCommentController::class, 'destroy']);
+
+        // Edit Comment
+        Route::put('/comments/{comment}', [PostCommentController::class, 'update']);
+        Route::put('/replies/{reply}', [PostChildCommentController::class, 'update']);
+
     });
 });

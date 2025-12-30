@@ -82,4 +82,45 @@ class PostCommentController extends Controller
             'message' => 'Komentar dihapus'
         ]);
     }
+
+    public function update(Request $request, PostComment $comment)
+    {
+        $request->validate(['message' => 'required']);
+
+        // Ambil student berdasarkan token yang sedang login
+        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
+
+        if (!$student) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Autentikasi siswa gagal'
+            ], 403);
+        }
+
+        // Pastikan hanya pemilik yang boleh edit
+        if ($comment->student_id != $student->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak diizinkan'
+            ], 403);
+        }
+
+        // Update komentar
+        $comment->update([
+            'message' => $request->message
+        ]);
+
+        $comment->load([
+            'student:id,name,photo',
+            'user:id,name,img',
+            'replies.student:id,name,photo',
+            'replies.user:id,name,img'
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Komentar berhasil diperbarui',
+            'data' => $comment
+        ]);
+    }
 }

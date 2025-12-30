@@ -42,7 +42,7 @@ class TaskController extends Controller
      */
     public function store(Request $request)
     {
-        $student = $request->user('student');
+        $student = $request->user();
 
         $validated = $request->validate([
             'post_id' => 'required|integer|exists:posts,id',
