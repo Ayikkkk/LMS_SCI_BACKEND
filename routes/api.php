@@ -69,6 +69,11 @@ Route::prefix('student')->group(function () {
         Route::get('/assignments', [PostController::class, 'assignments']);
         Route::get('/assignments/{id}', [PostController::class, 'show']);
         Route::get('/posts/{id}', [PostController::class, 'show']);
+        Route::get(
+            '/posts/{id}/download',
+            [PostController::class, 'downloadAttachment']
+        );
+
 
         /**
          * --------------------------
@@ -114,9 +119,18 @@ Route::prefix('student')->group(function () {
          * GRADES
          * --------------------------
          */
+
+        // Dashboard / legacy
         Route::get('/grades/tasks', [GradeController::class, 'taskGrades']);
         Route::get('/grades/exercises', [GradeController::class, 'exerciseGrades']);
         Route::get('/grades/summary', [GradeController::class, 'summary']);
+
+        // Rekap nilai per mapel (DINAMIS)
+        Route::get('/grades/rekap-mapel', [GradeController::class, 'recapPerMapel']);
+
+        // Download PDF rekap nilai
+        Route::get('/grades/rekap-mapel/pdf', [GradeController::class, 'downloadRecapPdf']);
+
 
         /**
          * --------------------------

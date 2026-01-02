@@ -121,6 +121,37 @@ class PostController extends Controller
     }
 
     /**
+     * ⬇️ Download lampiran materi / tugas (AUTH)
+     */
+    public function downloadAttachment(Request $request, $id)
+    {
+        $student = $request->user('student');
+
+        $post = Post::where('id', $id)
+            ->where('serial_id', $student->serial_id)
+            ->firstOrFail();
+
+        if (!$post->attachment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File tidak tersedia'
+            ], 404);
+        }
+
+        $path = storage_path('app/public/' . $post->attachment);
+
+        if (!file_exists($path)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'File tidak ditemukan'
+            ], 404);
+        }
+
+        return response()->download($path);
+    }
+
+
+    /**
      * 📝 Tambah data Post
      */
     public function store(Request $request)
