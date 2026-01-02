@@ -48,6 +48,10 @@ class DashboardController extends Controller
             ])
             ->map(function ($meeting) {
                 $now = now();
+
+                $start = $meeting->start_time ? \Carbon\Carbon::parse($meeting->start_time) : null;
+                $end   = $meeting->end_time ? \Carbon\Carbon::parse($meeting->end_time) : null;
+
                 return [
                     'id' => $meeting->id,
                     'title' => $meeting->title,
@@ -55,8 +59,10 @@ class DashboardController extends Controller
                     'start_time' => $meeting->start_time,
                     'end_time' => $meeting->end_time,
                     'status' => $meeting->status,
-                    'is_live' => $now->between($meeting->start_time, $meeting->end_time),
-                    'is_upcoming' => $meeting->start_time > $now,
+
+                    //  SAFE CHECK
+                    'is_live' => $start && $end ? $now->between($start, $end) : false,
+                    'is_upcoming' => $start ? $start->gt($now) : false,
                 ];
             });
 
