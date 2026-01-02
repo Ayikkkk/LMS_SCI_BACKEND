@@ -18,8 +18,6 @@ class GradeController extends Controller
     public function recapPerMapel(Request $request)
     {
         $student = $request->user();
-
-        // 🔑 Ambil classroom siswa
         $classroom = $student->classroom;
 
         if (!$classroom) {
@@ -29,68 +27,100 @@ class GradeController extends Controller
             ], 422);
         }
 
-        // 🔑 Ambil mapel sesuai kelas siswa
-        $lessons = Lesson::where('grade', $classroom->grade)
+        /**
+         * ==========================
+         * AMBIL MAPEL DARI TUGAS
+         * ==========================
+         */
+        $mapelFromTasks = Post::where('is_task', 1)
+            ->where('serial_id', $student->serial_id)
+            ->pluck('mapel_id');
+
+        /**
+         * ==========================
+         * AMBIL LESSON SESUAI KELAS
+         * ==========================
+         */
+        $lessons = Lesson::where('grade', $classroom->grade)->get();
+
+        $mapelFromLessons = $lessons->pluck('mapel_id');
+
+        /**
+         * ==========================
+         * GABUNG MAPEL
+         * ==========================
+         */
+        $mapelIds = $mapelFromTasks
+            ->merge($mapelFromLessons)
+            ->unique()
+            ->values();
+
+        $mapels = DB::table('mapels')
+            ->whereIn('id', $mapelIds)
             ->orderBy('name')
             ->get();
 
-        // Ambil semua tugas (post) untuk mapel terkait
+        /**
+         * ==========================
+         * DATA DETAIL
+         * ==========================
+         */
         $taskPosts = Post::where('is_task', 1)
-            ->whereIn('mapel_id', $lessons->pluck('mapel_id'))
-            ->select('id', 'mapel_id', 'title')
-            ->get();
+            ->where('serial_id', $student->serial_id)
+            ->get(['id', 'mapel_id', 'title']);
 
-        // Ambil semua quiz untuk mapel terkait
-        $exercises = Exercise::whereIn('lesson_id', $lessons->pluck('id'))
-            ->select('id', 'lesson_id', 'title')
-            ->get();
+        $exercises = Exercise::where('serial_id', $student->serial_id)
+            ->whereIn('lesson_id', $lessons->pluck('id'))
+            ->get(['id', 'lesson_id', 'title']);
 
-        // Nilai siswa
         $taskPoints = Task::where('student_id', $student->id)->get();
         $exercisePoints = ExercisePoint::where('student_id', $student->id)->get();
 
         $rows = [];
 
-        foreach ($lessons as $lesson) {
-
+        foreach ($mapels as $mapel) {
             $headers = collect();
             $scores = [];
 
-            // =====================
-            // TUGAS
-            // =====================
-            foreach ($taskPosts->where('mapel_id', $lesson->mapel_id) as $post) {
-
+            /**
+             * ============
+             * TUGAS
+             * ============
+             */
+            foreach ($taskPosts->where('mapel_id', $mapel->id) as $post) {
                 $headers->push($post->title);
 
                 $task = $taskPoints->firstWhere('post_id', $post->id);
-
                 $scores[$post->title] =
-                    $task && $task->point !== null
-                    ? (int) $task->point
-                    : '-';
+                    $task && $task->point !== null ? (int) $task->point : '-';
             }
 
-            // =====================
-            // QUIZ / UJIAN
-            // =====================
-            foreach ($exercises->where('lesson_id', $lesson->id) as $exercise) {
+            /**
+             * ============
+             * QUIZ
+             * ============
+             */
+            foreach ($lessons->where('mapel_id', $mapel->id) as $lesson) {
+                foreach ($exercises->where('lesson_id', $lesson->id) as $exercise) {
+                    $headers->push($exercise->title);
 
-                $headers->push($exercise->title);
+                    $point = $exercisePoints
+                        ->firstWhere('exercise_id', $exercise->id);
 
-                $point = $exercisePoints->firstWhere('exercise_id', $exercise->id);
-
-                $scores[$exercise->title] =
-                    $point && $point->exercise_point !== null
-                    ? (int) $point->exercise_point
-                    : '-';
+                    $scores[$exercise->title] =
+                        $point && $point->exercise_point !== null
+                        ? (int) $point->exercise_point
+                        : '-';
+                }
             }
 
-            $rows[] = [
-                'mapel'   => $lesson->name,
-                'headers' => $headers->unique()->values(),
-                'scores'  => $scores
-            ];
+            if ($headers->isNotEmpty()) {
+                $rows[] = [
+                    'mapel'   => $mapel->name,
+                    'headers' => $headers->unique()->values(),
+                    'scores'  => $scores
+                ];
+            }
         }
 
         return response()->json([
@@ -103,7 +133,6 @@ class GradeController extends Controller
             'rows' => $rows
         ]);
     }
-
 
     public function downloadRecapPdf(Request $request)
     {
