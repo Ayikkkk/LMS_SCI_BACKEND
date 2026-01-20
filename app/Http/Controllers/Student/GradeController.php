@@ -191,7 +191,7 @@ class GradeController extends Controller
     }
 
     /**
-     * 🧮 Daftar nilai latihan / quiz siswa
+     *  Daftar nilai latihan / quiz siswa
      */
     public function exerciseGrades(Request $request)
     {
@@ -220,7 +220,7 @@ class GradeController extends Controller
     }
 
     /**
-     * 📊 Rekap nilai dashboard (ringkas & cepat)
+     * Rekap nilai dashboard (ringkas & cepat)
      */
     public function summary(Request $request)
     {

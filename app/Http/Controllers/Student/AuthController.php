@@ -42,7 +42,6 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login berhasil',
             'token' => $token,
-            // ⬇️ PENTING: pakai key "student"
             'student' => [
                 'id' => $student->id,
                 'name' => $student->name,

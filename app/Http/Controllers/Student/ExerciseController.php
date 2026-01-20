@@ -12,7 +12,7 @@ use App\Models\ExerciseType;
 
 class ExerciseController extends Controller
 {
-    // 📄 Daftar semua lesson (mapel) yang punya exercise untuk student
+    //Daftar semua lesson (mapel) yang punya exercise untuk student
     public function index(Request $request)
     {
         $student = $request->user();
@@ -47,7 +47,7 @@ class ExerciseController extends Controller
                         'count' => $group->count(),
                     ];
                 })
-                ->filter() // hapus null
+                ->filter()
                 ->values();
 
             return [
@@ -67,7 +67,7 @@ class ExerciseController extends Controller
         ]);
     }
 
-    // 📄 Daftar exercise untuk lesson tertentu, optional filter by type_id
+    //  Daftar exercise untuk lesson tertentu, optional filter by type_id
     public function exercisesByLesson(Request $request, $lessonId)
     {
         $student = $request->user();
@@ -108,13 +108,11 @@ class ExerciseController extends Controller
     }
 
     // Kirim jawaban quiz
-    // 📝 Kirim jawaban quiz (FINAL - TANPA SIMPAN WAKTU)
-    // 📝 Kirim jawaban quiz (FINAL & BENAR)
     public function submit(Request $request, $id)
     {
         $student = $request->user();
 
-        // 🔒 CEK SUDAH PERNAH MENGERJAKAN
+        // 🔒 Cegah pengerjaan ulang
         $existing = ExercisePoint::where('exercise_id', $id)
             ->where('student_id', $student->id)
             ->first();
@@ -128,31 +126,42 @@ class ExerciseController extends Controller
         }
 
         $validated = $request->validate([
-            'answers' => 'required|array', // {question_id: option}
+            'answers' => 'required|array',
         ]);
 
         $answers = $validated['answers'];
-        $totalQuestions = count($answers);
+        $isAuto = $request->boolean('auto_submit', false); // ✅ tangkap flag auto
+        $localScore = $request->input('local_score'); // ✅ jika dikirim dari Flutter
+
+        // ✅ Ambil semua soal quiz dari database
+        $questions = ExerciseItem::where('exercise_id', $id)->get();
+        $totalQuestions = $questions->count();
+
+        if ($totalQuestions === 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tidak ada soal untuk latihan ini'
+            ], 400);
+        }
+
         $correctAnswers = 0;
 
-        foreach ($answers as $questionId => $selectedOption) {
-            $question = ExerciseItem::find($questionId);
-            if (!$question) {
+        foreach ($questions as $question) {
+            $qid = (string) $question->id;
+
+            // Kalau siswa tidak jawab pertanyaan ini, lewati
+            if (!isset($answers[$qid])) {
                 continue;
             }
 
-            // ===== NORMALISASI JAWABAN SISWA =====
-            $studentAnswer = strtolower(trim($selectedOption)); // a,b,c,d
-
-            // ===== NORMALISASI JAWABAN BENAR =====
+            $studentAnswer = strtolower(trim($answers[$qid]));
             $correctAnswer = strtolower(trim($question->answer));
 
-            // jika bentuk "option_a"
+            // Normalisasi berbagai format jawaban benar
             if (str_contains($correctAnswer, 'option_')) {
                 $correctAnswer = str_replace('option_', '', $correctAnswer);
             }
 
-            // jika JSON ["a"]
             if (str_starts_with($correctAnswer, '[')) {
                 try {
                     $parsed = json_decode($correctAnswer, true);
@@ -169,13 +178,16 @@ class ExerciseController extends Controller
             }
         }
 
-        // ===== HITUNG NILAI =====
-        if ($totalQuestions === 0) {
+        // 🧩 Hitung skor
+        if ($correctAnswers === 0) {
             $score = 0;
-        } elseif ($correctAnswers === $totalQuestions) {
-            $score = 100;
         } else {
             $score = round(($correctAnswers / $totalQuestions) * 100);
+        }
+
+        // 🧩 Jika auto submit + local_score dikirim dari Flutter, pakai itu
+        if ($isAuto && $localScore !== null) {
+            $score = (int) $localScore;
         }
 
         $point = ExercisePoint::create([
@@ -190,6 +202,7 @@ class ExerciseController extends Controller
             'success' => true,
             'message' => 'Quiz berhasil dikirim',
             'score' => $score,
+            'auto_submit' => $isAuto,
             'data' => $point
         ]);
     }

@@ -63,18 +63,13 @@ Route::prefix('teacher')
         // Delete reply
         Route::delete('/replies/{reply}', [TeacherPostChildCommentController::class, 'destroy'])
             ->name('comments.reply.destroy');
+
+        Route::get('/posts/create', [PostController::class, 'create'])
+            ->name('posts.create');
+
+        Route::post('/posts', [PostController::class, 'store'])
+            ->name('posts.store');
     });
-
-/*
-|--------------------------------------------------------------------------
-| Routes Post Student (Testing Only)
-|--------------------------------------------------------------------------
-*/
-Route::get('/posts/create', [PostController::class, 'create'])
-    ->name('posts.create');
-
-Route::post('/posts', [PostController::class, 'store'])
-    ->name('posts.store');
 
 /*
 |--------------------------------------------------------------------------
