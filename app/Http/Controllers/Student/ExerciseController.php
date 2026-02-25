@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
@@ -12,43 +11,41 @@ use App\Models\ExerciseType;
 
 class ExerciseController extends Controller
 {
-    //Daftar semua lesson (mapel) yang punya exercise untuk student
+    /**
+     * Exercise Model ID Mapping:
+     * 1 = Multiple Choice (single answer, radio buttons)
+     * 2 = Multiple Answer (multiple answers, checkboxes)
+     * 3 = Statement (true/false)
+     * 4 = Fill in the Blank
+     * 5 = Essay
+     * 6 = Yes/No
+     * 7 = Argument
+     */
+
+    // Daftar semua lesson (mapel) yang punya exercise untuk student
     public function index(Request $request)
     {
         $student = $request->user();
 
-        // Ambil lesson yang punya exercises untuk serial_id siswa
         $lessons = Lesson::whereHas('exercises', function ($q) use ($student) {
             $q->where('serial_id', $student->serial_id);
-        })
-            ->with(['exercises' => function ($q) use ($student) {
-                // hanya exercises untuk serial siswa, include tipe-nya
-                $q->where('serial_id', $student->serial_id)
-                    ->with('exerciseType');
-            }])
-            ->orderBy('name')
-            ->get();
+        })->with(['exercises' => function ($q) use ($student) {
+            $q->where('serial_id', $student->serial_id)->with('exerciseType');
+        }])->orderBy('name')->get();
 
-        // Transform menjadi bentuk ringkas: lesson + list tipe exercise tersedia (dengan count)
         $data = $lessons->map(function ($lesson) {
-            $types = $lesson->exercises
-                ->groupBy(function ($ex) {
-                    return $ex->exerciseType ? $ex->exerciseType->id : null;
-                })
-                ->map(function ($group, $key) {
-                    if ($key === null) {
-                        return null;
-                    }
-                    $type = $group->first()->exerciseType;
-                    return [
-                        'id' => $type->id,
-                        'kode' => $type->kode,
-                        'name' => $type->name,
-                        'count' => $group->count(),
-                    ];
-                })
-                ->filter()
-                ->values();
+            $types = $lesson->exercises->groupBy(function ($ex) {
+                return $ex->exerciseType ? $ex->exerciseType->id : null;
+            })->map(function ($group, $key) {
+                if ($key === null) return null;
+                $type = $group->first()->exerciseType;
+                return [
+                    'id' => $type->id,
+                    'kode' => $type->kode,
+                    'name' => $type->name,
+                    'count' => $group->count(),
+                ];
+            })->filter()->values();
 
             return [
                 'id' => $lesson->id,
@@ -61,13 +58,10 @@ class ExerciseController extends Controller
             ];
         });
 
-        return response()->json([
-            'success' => true,
-            'data' => $data
-        ]);
+        return response()->json(['success' => true, 'data' => $data]);
     }
 
-    //  Daftar exercise untuk lesson tertentu, optional filter by type_id
+    // Daftar exercise untuk lesson tertentu
     public function exercisesByLesson(Request $request, $lessonId)
     {
         $student = $request->user();
@@ -83,16 +77,13 @@ class ExerciseController extends Controller
 
         $exercises = $query->orderBy('id', 'desc')->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => $exercises
-        ]);
+        return response()->json(['success' => true, 'data' => $exercises]);
     }
 
-    // Detail quiz & soal (tidak berubah)
+    // ✅ Detail quiz & soal
     public function show($id)
     {
-        $exercise = Exercise::with('items')->find($id);
+        $exercise = Exercise::with(['items', 'exerciseType'])->find($id);
 
         if (!$exercise) {
             return response()->json([
@@ -101,18 +92,139 @@ class ExerciseController extends Controller
             ], 404);
         }
 
+        // Format items dengan tipe soal yang benar
+        $formattedItems = $exercise->items->map(function ($item) {
+            $question = strip_tags($item->question);
+            $options = $this->parseOptions($item->selection, $item->exercise_model_id);
+
+            return [
+                'id' => $item->id,
+                'question' => $question,
+                'options' => $options,
+                'type' => $this->mapModelIdToType($item->exercise_model_id),
+                'is_multiple' => $item->exercise_model_id == 2,
+                'allow_multiple' => $item->exercise_model_id == 2,
+                'multiple_correct' => $item->exercise_model_id == 2,
+                'exercise_model_id' => $item->exercise_model_id,
+                'exercise_choice' => $item->exercise_choice,
+            ];
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $exercise
+            'data' => [
+                'id' => $exercise->id,
+                'title' => $exercise->title ?? 'Quiz',
+                'description' => $exercise->description ?? '',
+                'time_limit' => $exercise->time_limit ?? null,
+                'items' => $formattedItems,
+                'exercise_type_name' => $exercise->exerciseType->name ?? null,
+                'type_name' => $exercise->exerciseType->name ?? null,
+            ]
         ]);
     }
 
-    // Kirim jawaban quiz
+    // ✅ Parse options dari kolom 'selection'
+    private function parseOptions($selection, $modelId)
+    {
+        if (in_array($modelId, [4, 5, 7])) {
+            return [];
+        }
+
+        if (empty($selection)) {
+            return [];
+        }
+
+        $options = [];
+
+        if (str_starts_with(trim($selection), '[') || str_starts_with(trim($selection), '{')) {
+            try {
+                $decoded = json_decode($selection, true);
+                if (is_array($decoded)) {
+                    $options = array_map(function($opt) {
+                        return strip_tags($opt);
+                    }, $decoded);
+                    return array_values($options);
+                }
+            } catch (\Exception $e) {
+                // Continue to manual parsing
+            }
+        }
+
+        if (strpos($selection, "\n") !== false) {
+            $options = array_map('trim', explode("\n", $selection));
+        } else {
+            $options = array_map('trim', explode(',', $selection));
+        }
+
+        $options = array_map(function($opt) {
+            return strip_tags($opt);
+        }, $options);
+
+        $options = array_filter($options, function($opt) {
+            return !empty($opt);
+        });
+
+        return array_values($options);
+    }
+
+    // ✅ Map exercise_model_id ke tipe Flutter
+    private function mapModelIdToType($modelId)
+    {
+        $mapping = [
+            1 => 'multiple_choice',
+            2 => 'multiple_answer',
+            3 => 'true_false',
+            4 => 'fill_in_the_blank',
+            5 => 'essay',
+            6 => 'yes_no',
+            7 => 'essay',
+        ];
+
+        return $mapping[$modelId] ?? 'multiple_choice';
+    }
+
+    // ✅ Cek apakah tipe exercise perlu penilaian manual
+    private function isManualGradingType($typeName)
+    {
+        if (empty($typeName)) {
+            return false;
+        }
+
+        $typeName = strtolower(trim($typeName));
+
+        // Daftar tipe yang perlu penilaian manual
+        $manualGradingTypes = [
+            'akm',
+            'asesmen kompetensi minimum',
+            'essay',
+            'uraian',
+            'project',
+            'proyek',
+        ];
+
+        // Cek exact match
+        if (in_array($typeName, $manualGradingTypes)) {
+            return true;
+        }
+
+        // Cek partial match (jika nama mengandung kata kunci)
+        foreach ($manualGradingTypes as $type) {
+            if (strpos($typeName, $type) !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // ✅ Submit quiz - CORRECTED (bagian awal yang hilang sudah ditambahkan)
     public function submit(Request $request, $id)
     {
         $student = $request->user();
 
-        // 🔒 Cegah pengerjaan ulang
+        // ✅ BAGIAN INI YANG HILANG DI CONTROLLER ANDA!
+        // Cegah pengerjaan ulang
         $existing = ExercisePoint::where('exercise_id', $id)
             ->where('student_id', $student->id)
             ->first();
@@ -130,10 +242,24 @@ class ExerciseController extends Controller
         ]);
 
         $answers = $validated['answers'];
-        $isAuto = $request->boolean('auto_submit', false); // ✅ tangkap flag auto
-        $localScore = $request->input('local_score'); // ✅ jika dikirim dari Flutter
+        $isAuto = $request->boolean('auto_submit', false);
+        $localScore = $request->input('local_score');
 
-        // ✅ Ambil semua soal quiz dari database
+        // ✅ AMBIL INFO EXERCISE TYPE
+        $exercise = Exercise::with('exerciseType')->find($id);
+
+        if (!$exercise) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Exercise tidak ditemukan'
+            ], 404);
+        }
+
+        $exerciseTypeName = $exercise->exerciseType->name ?? '';
+
+        // ✅ CEK APAKAH PERLU MANUAL GRADING
+        $isPendingReview = $this->isManualGradingType($exerciseTypeName);
+
         $questions = ExerciseItem::where('exercise_id', $id)->get();
         $totalQuestions = $questions->count();
 
@@ -144,52 +270,45 @@ class ExerciseController extends Controller
             ], 400);
         }
 
-        $correctAnswers = 0;
+        $score = null;
 
-        foreach ($questions as $question) {
-            $qid = (string) $question->id;
+        // ✅ HANYA HITUNG SKOR JIKA BUKAN MANUAL GRADING
+        if (!$isPendingReview) {
+            $correctAnswers = 0;
 
-            // Kalau siswa tidak jawab pertanyaan ini, lewati
-            if (!isset($answers[$qid])) {
-                continue;
-            }
+            foreach ($questions as $question) {
+                $qid = (string) $question->id;
 
-            $studentAnswer = strtolower(trim($answers[$qid]));
-            $correctAnswer = strtolower(trim($question->answer));
+                if (!isset($answers[$qid])) {
+                    continue;
+                }
 
-            // Normalisasi berbagai format jawaban benar
-            if (str_contains($correctAnswer, 'option_')) {
-                $correctAnswer = str_replace('option_', '', $correctAnswer);
-            }
+                $studentAnswer = $answers[$qid];
+                $correctAnswer = trim($question->answer);
 
-            if (str_starts_with($correctAnswer, '[')) {
-                try {
-                    $parsed = json_decode($correctAnswer, true);
-                    if (is_array($parsed) && count($parsed) > 0) {
-                        $correctAnswer = strtolower(trim($parsed[0]));
-                    }
-                } catch (\Exception $e) {
-                    // ignore
+                switch ($question->exercise_model_id) {
+                    case 2:
+                        $correctAnswers += $this->checkMultipleAnswer($studentAnswer, $correctAnswer);
+                        break;
+                    case 4:
+                    case 5:
+                    case 7:
+                        $correctAnswers += $this->checkTextAnswer($studentAnswer, $correctAnswer);
+                        break;
+                    default:
+                        $correctAnswers += $this->checkSingleAnswer($studentAnswer, $correctAnswer);
+                        break;
                 }
             }
 
-            if ($studentAnswer === $correctAnswer) {
-                $correctAnswers++;
+            $score = $correctAnswers === 0 ? 0 : round(($correctAnswers / $totalQuestions) * 100);
+
+            if ($isAuto && $localScore !== null) {
+                $score = (int) $localScore;
             }
         }
 
-        // 🧩 Hitung skor
-        if ($correctAnswers === 0) {
-            $score = 0;
-        } else {
-            $score = round(($correctAnswers / $totalQuestions) * 100);
-        }
-
-        // 🧩 Jika auto submit + local_score dikirim dari Flutter, pakai itu
-        if ($isAuto && $localScore !== null) {
-            $score = (int) $localScore;
-        }
-
+        // ✅ SIMPAN KE DATABASE
         $point = ExercisePoint::create([
             'serial_id' => $student->serial_id,
             'exercise_id' => $id,
@@ -200,20 +319,81 @@ class ExerciseController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Quiz berhasil dikirim',
+            'message' => $isPendingReview
+                ? 'Quiz berhasil dikirim, menunggu penilaian guru'
+                : 'Quiz berhasil dikirim',
             'score' => $score,
             'auto_submit' => $isAuto,
+            'is_pending_review' => $isPendingReview,
             'data' => $point
         ]);
     }
 
-    // Lihat hasil / nilai quiz (tetap sama)
+    private function checkSingleAnswer($studentAnswer, $correctAnswer)
+    {
+        $studentAnswer = strtolower(trim($studentAnswer));
+        $correctAnswer = strtolower(trim($correctAnswer));
+
+        $correctAnswer = str_replace('option_', '', $correctAnswer);
+        $studentAnswer = str_replace('option_', '', $studentAnswer);
+
+        if (str_starts_with($correctAnswer, '[')) {
+            try {
+                $parsed = json_decode($correctAnswer, true);
+                if (is_array($parsed) && count($parsed) > 0) {
+                    $correctAnswer = strtolower(trim($parsed[0]));
+                }
+            } catch (\Exception $e) {
+                // ignore
+            }
+        }
+
+        return $studentAnswer === $correctAnswer ? 1 : 0;
+    }
+
+    private function checkMultipleAnswer($studentAnswer, $correctAnswer)
+    {
+        $studentAnswers = array_map('trim', explode(',', strtolower($studentAnswer)));
+        $correctAnswers = array_map('trim', explode(',', strtolower($correctAnswer)));
+
+        $studentAnswers = array_map(function($ans) {
+            return str_replace('option_', '', $ans);
+        }, $studentAnswers);
+
+        $correctAnswers = array_map(function($ans) {
+            return str_replace('option_', '', $ans);
+        }, $correctAnswers);
+
+        sort($studentAnswers);
+        sort($correctAnswers);
+
+        return $studentAnswers === $correctAnswers ? 1 : 0;
+    }
+
+    private function checkTextAnswer($studentAnswer, $correctAnswer)
+    {
+        $studentAnswer = trim($studentAnswer);
+        $correctAnswer = trim($correctAnswer);
+
+        if (empty($correctAnswer)) {
+            return !empty($studentAnswer) ? 1 : 0;
+        }
+
+        if (strtolower($studentAnswer) === strtolower($correctAnswer)) {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    // ✅ Lihat hasil quiz
     public function result(Request $request, $id)
     {
         $student = $request->user();
 
         $result = ExercisePoint::where('exercise_id', $id)
             ->where('student_id', $student->id)
+            ->with('exercise.exerciseType')
             ->latest()
             ->first();
 
@@ -224,9 +404,22 @@ class ExerciseController extends Controller
             ], 404);
         }
 
+        $exerciseTypeName = $result->exercise->exerciseType->name ?? '';
+        $isPendingReview = $this->isManualGradingType($exerciseTypeName) && $result->exercise_point === null;
+
         return response()->json([
             'success' => true,
-            'data' => $result
+            'data' => [
+                'id' => $result->id,
+                'exercise_id' => $result->exercise_id,
+                'student_id' => $result->student_id,
+                'exercise_point' => $result->exercise_point,
+                'answer' => $result->answer,
+                'created_at' => $result->created_at,
+                'updated_at' => $result->updated_at,
+                'is_pending_review' => $isPendingReview,
+                'exercise_type_name' => $exerciseTypeName,
+            ]
         ]);
     }
 }

@@ -13,7 +13,7 @@
         <a class="navbar-brand" href="#">LMS Admin</a>
 
         <div>
-            <a href="{{ route('posts.create') }}" class="btn btn-primary btn-sm">Tambah Post</a>
+            <a href="" class="btn btn-primary btn-sm">Tambah Post</a>
         </div>
     </div>
 </nav>

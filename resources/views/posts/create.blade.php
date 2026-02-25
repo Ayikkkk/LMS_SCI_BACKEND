@@ -17,7 +17,7 @@
         </div>
     @endif
 
-    <form action="{{ route('posts.store') }}" method="POST" enctype="multipart/form-data">
+    <form action="{{ route('teacher.posts.store') }}" method="POST" enctype="multipart/form-data">
         @csrf
 
         {{-- HIDDEN: serial_id & user_id --}}
