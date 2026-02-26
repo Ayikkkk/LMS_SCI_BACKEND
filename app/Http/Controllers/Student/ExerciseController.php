@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
@@ -8,6 +9,8 @@ use App\Models\ExerciseItem;
 use App\Models\ExercisePoint;
 use App\Models\Lesson;
 use App\Models\ExerciseType;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ExerciseController extends Controller
 {
@@ -141,7 +144,7 @@ class ExerciseController extends Controller
             try {
                 $decoded = json_decode($selection, true);
                 if (is_array($decoded)) {
-                    $options = array_map(function($opt) {
+                    $options = array_map(function ($opt) {
                         return strip_tags($opt);
                     }, $decoded);
                     return array_values($options);
@@ -157,11 +160,11 @@ class ExerciseController extends Controller
             $options = array_map('trim', explode(',', $selection));
         }
 
-        $options = array_map(function($opt) {
+        $options = array_map(function ($opt) {
             return strip_tags($opt);
         }, $options);
 
-        $options = array_filter($options, function($opt) {
+        $options = array_filter($options, function ($opt) {
             return !empty($opt);
         });
 
@@ -356,11 +359,11 @@ class ExerciseController extends Controller
         $studentAnswers = array_map('trim', explode(',', strtolower($studentAnswer)));
         $correctAnswers = array_map('trim', explode(',', strtolower($correctAnswer)));
 
-        $studentAnswers = array_map(function($ans) {
+        $studentAnswers = array_map(function ($ans) {
             return str_replace('option_', '', $ans);
         }, $studentAnswers);
 
-        $correctAnswers = array_map(function($ans) {
+        $correctAnswers = array_map(function ($ans) {
             return str_replace('option_', '', $ans);
         }, $correctAnswers);
 
@@ -421,5 +424,43 @@ class ExerciseController extends Controller
                 'exercise_type_name' => $exerciseTypeName,
             ]
         ]);
+    }
+
+    public function logActivity(Request $request)
+    {
+        $student = $request->user();
+
+        $validated = $request->validate([
+            'exercise_id' => 'required|exists:exercises,id',
+            'event_type' => 'required|string|max:100',
+            'duration_seconds' => 'nullable|integer',
+            'suspicious_flag' => 'nullable|boolean',
+            'timestamp' => 'required|date',
+        ]);
+
+        try {
+            DB::table('quiz_activity_logs')->insert([
+                'student_id' => $student->id,
+                'exercise_id' => $validated['exercise_id'],
+                'event_type' => $validated['event_type'],
+                'duration_seconds' => $validated['duration_seconds'] ?? null,
+                'suspicious_flag' => $validated['suspicious_flag'] ?? false,
+                'ip_address' => $request->ip(),
+                'created_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Activity logged'
+            ]);
+        } catch (\Exception $e) {
+
+            Log::error('Quiz log failed: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to log activity'
+            ], 500);
+        }
     }
 }

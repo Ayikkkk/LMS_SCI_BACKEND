@@ -94,6 +94,7 @@ Route::prefix('student')->group(function () {
         Route::get('/exercises/{id}', [ExerciseController::class, 'show']);
         Route::post('/exercises/{id}/submit', [ExerciseController::class, 'submit']);
         Route::get('/exercises/{id}/result', [ExerciseController::class, 'result']);
+        Route::post('/quiz/log', [ExerciseController::class, 'logActivity']);
 
         /**
          * --------------------------
