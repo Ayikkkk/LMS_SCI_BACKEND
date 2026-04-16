@@ -13,10 +13,26 @@ use Illuminate\Support\Str;
 class AuthController extends Controller
 {
     /**
-     * ==========================
-     * LOGIN
-     * POST /student/login
-     * ==========================
+     * Generate full photo URL using the current request host.
+     * Does NOT use Storage::url() — it reads APP_URL from config which may be stale.
+     * Builds URL directly: requestHost + /storage/ + relativePath
+     */
+    private function photoUrl(?string $path, Request $request): ?string
+    {
+        if (!$path) return null;
+
+        // Legacy data: path is already a full URL with old IP → extract only the /storage/... part
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $storagePath = parse_url($path, PHP_URL_PATH); // e.g. /storage/students/xxx.jpg
+            return $request->getSchemeAndHttpHost() . $storagePath;
+        }
+
+        // Normal case: relative path like "students/xxx.jpg"
+        return $request->getSchemeAndHttpHost() . '/storage/' . $path;
+    }
+
+    /**
+     * LOGIN — POST /student/login
      */
     public function login(Request $request)
     {
@@ -41,21 +57,19 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Login berhasil',
-            'token' => $token,
+            'token'   => $token,
             'student' => [
-                'id' => $student->id,
-                'name' => $student->name,
-                'username' => $student->username,
-                'email' => $student->email,
-                'phone' => $student->phone ?? $student->telephone ?? null,
-                'nis' => $student->nis,
+                'id'        => $student->id,
+                'name'      => $student->name,
+                'username'  => $student->username,
+                'email'     => $student->email,
+                'phone'     => $student->phone ?? $student->telephone ?? null,
+                'nis'       => $student->nis,
                 'className' => optional($student->classroom)->name,
-                'photo' => $student->photo
-                    ? url(Storage::url($student->photo))
-                    : null,
-                'guru' => $student->guru ? [
-                    'id' => $student->guru->id,
-                    'name' => $student->guru->name,
+                'photo'     => $this->photoUrl($student->photo, $request),
+                'guru'      => $student->guru ? [
+                    'id'    => $student->guru->id,
+                    'name'  => $student->guru->name,
                     'email' => $student->guru->email,
                     'phone' => $student->guru->phone,
                 ] : null,
@@ -64,10 +78,7 @@ class AuthController extends Controller
     }
 
     /**
-     * ==========================
-     * PROFILE
-     * GET /student/profile
-     * ==========================
+     * PROFILE — GET /student/profile
      */
     public function profile(Request $request)
     {
@@ -76,21 +87,19 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => [
-                'id' => $student->id,
-                'name' => $student->name,
-                'username' => $student->username,
-                'email' => $student->email,
-                'phone' => $student->phone ?? $student->telephone ?? null,
-                'nis' => $student->nis,
+            'data'    => [
+                'id'           => $student->id,
+                'name'         => $student->name,
+                'username'     => $student->username,
+                'email'        => $student->email,
+                'phone'        => $student->phone ?? $student->telephone ?? null,
+                'nis'          => $student->nis,
                 'absen_number' => $student->absen_number,
-                'className' => optional($student->classroom)->name,
-                'photo' => $student->photo
-                    ? url(Storage::url($student->photo))
-                    : null,
-                'guru' => $student->guru ? [
-                    'id' => $student->guru->id,
-                    'name' => $student->guru->name,
+                'className'    => optional($student->classroom)->name,
+                'photo'        => $this->photoUrl($student->photo, $request),
+                'guru'         => $student->guru ? [
+                    'id'    => $student->guru->id,
+                    'name'  => $student->guru->name,
                     'email' => $student->guru->email,
                     'phone' => $student->guru->phone,
                 ] : null,
@@ -99,22 +108,16 @@ class AuthController extends Controller
     }
 
     /**
-     * ==========================
-     * UPDATE PROFILE
-     * PUT /student/profile
-     * ==========================
+     * UPDATE PROFILE — PUT /student/profile
      */
     public function updateProfile(Request $request)
     {
         $student = $request->user();
 
         $validated = $request->validate([
-            'name' => 'sometimes|nullable|string|max:255',
+            'name'  => 'sometimes|nullable|string|max:255',
             'email' => [
-                'sometimes',
-                'nullable',
-                'email',
-                'max:255',
+                'sometimes', 'nullable', 'email', 'max:255',
                 Rule::unique('students', 'email')->ignore($student->id),
             ],
             'phone' => 'sometimes|nullable|string|max:50',
@@ -147,22 +150,17 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profil berhasil diperbarui',
-            'data' => [
-                'name' => $student->name,
+            'data'    => [
+                'name'  => $student->name,
                 'email' => $student->email,
                 'phone' => $student->phone,
-                'photo' => $student->photo
-                    ? url(Storage::url($student->photo))
-                    : null,
+                'photo' => $this->photoUrl($student->photo, $request),
             ],
         ]);
     }
 
     /**
-     * ==========================
-     * CHANGE PASSWORD
-     * POST /student/change-password
-     * ==========================
+     * CHANGE PASSWORD — POST /student/change-password
      */
     public function changePassword(Request $request)
     {
@@ -170,7 +168,7 @@ class AuthController extends Controller
 
         $request->validate([
             'current_password' => 'required|string',
-            'new_password' => 'required|string|min:8|confirmed',
+            'new_password'     => 'required|string|min:8|confirmed',
         ]);
 
         if (!Hash::check($request->current_password, $student->password)) {
@@ -182,7 +180,6 @@ class AuthController extends Controller
 
         $student->update([
             'password' => Hash::make($request->new_password),
-            'password_text' => $request->new_password,
         ]);
 
         return response()->json([
@@ -192,10 +189,7 @@ class AuthController extends Controller
     }
 
     /**
-     * ==========================
-     * DELETE PHOTO
-     * DELETE /student/photo
-     * ==========================
+     * DELETE PHOTO — DELETE /student/photo
      */
     public function deletePhoto(Request $request)
     {
@@ -210,15 +204,12 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Foto berhasil dihapus',
-            'data' => ['photo' => null],
+            'data'    => ['photo' => null],
         ]);
     }
 
     /**
-     * ==========================
-     * LOGOUT
-     * POST /student/logout
-     * ==========================
+     * LOGOUT — POST /student/logout
      */
     public function logout(Request $request)
     {

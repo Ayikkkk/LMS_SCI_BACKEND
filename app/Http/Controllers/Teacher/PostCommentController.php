@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 use App\Models\PostComment;
 use App\Models\Post;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 use Illuminate\Support\Str;
 
 
@@ -15,7 +14,9 @@ class PostCommentController extends Controller
 {
     private function getTeacher()
     {
-        return Auth::user() ?? User::first();
+        $teacher = Auth::user();
+        if (!$teacher) abort(401, 'Unauthenticated.');
+        return $teacher;
     }
 
     public function index(Post $post)

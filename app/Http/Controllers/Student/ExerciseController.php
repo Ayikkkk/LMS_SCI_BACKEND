@@ -95,8 +95,8 @@ class ExerciseController extends Controller
             ], 404);
         }
 
-        // Format items dengan tipe soal yang benar
-        $formattedItems = $exercise->items->map(function ($item) {
+    // Format items dengan tipe soal yang benar, lalu acak urutan
+    $formattedItems = $exercise->items->map(function ($item) {
             $question = strip_tags($item->question);
             $options = $this->parseOptions($item->selection, $item->exercise_model_id);
 
@@ -111,7 +111,9 @@ class ExerciseController extends Controller
                 'exercise_model_id' => $item->exercise_model_id,
                 'exercise_choice' => $item->exercise_choice,
             ];
-        });
+        })
+        ->shuffle() // acak urutan soal setiap request
+        ->values();
 
         return response()->json([
             'success' => true,
@@ -240,12 +242,14 @@ class ExerciseController extends Controller
             ], 403);
         }
 
+        $isAuto = $request->boolean('auto_submit', false);
+
         $validated = $request->validate([
-            'answers' => 'required|array',
+            // Saat auto_submit (waktu habis), answers boleh kosong
+            'answers' => $isAuto ? 'nullable|array' : 'required|array',
         ]);
 
-        $answers = $validated['answers'];
-        $isAuto = $request->boolean('auto_submit', false);
+        $answers = $validated['answers'] ?? [];
         $localScore = $request->input('local_score');
 
         // ✅ AMBIL INFO EXERCISE TYPE
@@ -311,14 +315,16 @@ class ExerciseController extends Controller
             }
         }
 
-        // ✅ SIMPAN KE DATABASE
-        $point = ExercisePoint::create([
-            'serial_id' => $student->serial_id,
-            'exercise_id' => $id,
-            'student_id' => $student->id,
-            'answer' => json_encode($answers),
-            'exercise_point' => $score,
-        ]);
+        // ✅ SIMPAN KE DATABASE (wrapped in transaction to prevent partial saves)
+        $point = DB::transaction(function () use ($student, $id, $answers, $score) {
+            return ExercisePoint::create([
+                'serial_id'      => $student->serial_id,
+                'exercise_id'    => $id,
+                'student_id'     => $student->id,
+                'answer'         => json_encode($answers),
+                'exercise_point' => $score,
+            ]);
+        });
 
         return response()->json([
             'success' => true,
@@ -439,15 +445,21 @@ class ExerciseController extends Controller
         ]);
 
         try {
-            DB::table('quiz_activity_logs')->insert([
-                'student_id' => $student->id,
-                'exercise_id' => $validated['exercise_id'],
-                'event_type' => $validated['event_type'],
-                'duration_seconds' => $validated['duration_seconds'] ?? null,
+            DB::connection('mysql_log')->table('quiz_activity_logs')->insert([
+                'student_id'      => $student->id,
+                'exercise_id'     => $validated['exercise_id'],
+                'event_type'      => $validated['event_type'],
+                'duration_seconds'=> $validated['duration_seconds'] ?? null,
                 'suspicious_flag' => $validated['suspicious_flag'] ?? false,
-                'ip_address' => $request->ip(),
-                'created_at' => now(),
+                'ip_address'      => $request->ip(),
+                'created_at'      => now(),
             ]);
+
+            // Hapus log lama — simpan hanya 30 hari terakhir per student
+            DB::connection('mysql_log')->table('quiz_activity_logs')
+                ->where('student_id', $student->id)
+                ->where('created_at', '<', now()->subDays(30))
+                ->delete();
 
             return response()->json([
                 'success' => true,

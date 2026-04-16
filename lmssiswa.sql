@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Jan 10, 2026 at 07:09 PM
+-- Generation Time: Apr 03, 2026 at 11:07 AM
 -- Server version: 8.0.30
 -- PHP Version: 8.3.7
 
@@ -28,7 +28,7 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `admins` (
-  `id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
   `name` varchar(100) NOT NULL,
   `username` varchar(50) NOT NULL,
   `password` varchar(100) NOT NULL,
@@ -56,8 +56,8 @@ INSERT INTO `admins` (`id`, `name`, `username`, `password`, `role`, `date_in`, `
 --
 
 CREATE TABLE `classrooms` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED NOT NULL,
   `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `grade` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `code` varchar(24) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -80,9 +80,9 @@ INSERT INTO `classrooms` (`id`, `serial_id`, `name`, `grade`, `code`, `created_a
 --
 
 CREATE TABLE `competences` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `lesson_id` int(10) UNSIGNED NOT NULL,
-  `mapel_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `lesson_id` bigint UNSIGNED NOT NULL,
+  `mapel_id` bigint UNSIGNED NOT NULL,
   `point` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `description` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
@@ -104,10 +104,10 @@ INSERT INTO `competences` (`id`, `lesson_id`, `mapel_id`, `point`, `description`
 --
 
 CREATE TABLE `exercises` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `lesson_id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED DEFAULT NULL,
-  `exercise_type_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `lesson_id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED DEFAULT NULL,
+  `exercise_type_id` bigint UNSIGNED NOT NULL,
   `title` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `is_admin` tinyint(1) NOT NULL DEFAULT '1',
   `created_at` timestamp NULL DEFAULT NULL,
@@ -123,7 +123,8 @@ INSERT INTO `exercises` (`id`, `lesson_id`, `serial_id`, `exercise_type_id`, `ti
 (2, 2, 1, 1, 'Pengenalan Kata Kerja', 1, '2025-12-09 06:22:43', '2025-12-09 06:22:43'),
 (3, 1, 1, 2, 'Latihan Bilangan Kuadrat', 1, '2025-12-09 08:08:24', '2025-12-09 08:08:24'),
 (4, 2, 1, 2, 'Macam Kosa Kata', 1, '2025-12-18 12:41:12', '2025-12-18 12:41:12'),
-(5, 2, 1, 1, 'Ulangan Kata Dasar', 1, '2026-01-02 16:30:01', '2026-01-02 16:30:01');
+(5, 2, 1, 1, 'Ulangan Kata Dasar', 1, '2026-01-02 16:30:01', '2026-01-02 16:30:01'),
+(6, 2, 1, 4, 'Soal AKM', 1, '2026-02-25 08:32:32', '2026-02-25 08:32:32');
 
 -- --------------------------------------------------------
 
@@ -132,13 +133,13 @@ INSERT INTO `exercises` (`id`, `lesson_id`, `serial_id`, `exercise_type_id`, `ti
 --
 
 CREATE TABLE `exercise_items` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `admin_id` int(10) UNSIGNED DEFAULT NULL,
-  `user_id` int(10) UNSIGNED DEFAULT NULL,
-  `competence_id` int(10) UNSIGNED DEFAULT NULL,
-  `exercise_id` int(10) UNSIGNED NOT NULL,
-  `exercise_type_id` int(10) UNSIGNED NOT NULL,
-  `exercise_model_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `admin_id` bigint UNSIGNED DEFAULT NULL,
+  `user_id` bigint UNSIGNED DEFAULT NULL,
+  `competence_id` bigint UNSIGNED DEFAULT NULL,
+  `exercise_id` bigint UNSIGNED NOT NULL,
+  `exercise_type_id` bigint UNSIGNED NOT NULL,
+  `exercise_model_id` bigint UNSIGNED NOT NULL,
   `exercise_choice` tinyint NOT NULL,
   `exercise_number` int NOT NULL,
   `question` text COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -171,7 +172,12 @@ INSERT INTO `exercise_items` (`id`, `admin_id`, `user_id`, `competence_id`, `exe
 (15, 1, NULL, 2, 5, 1, 1, 4, 8, 'Tokoh utama dalam sebuah cerita disebut?', '[\"<p>Latar</p>\",\"<p>Alur</p>\",\"<p>Tokoh utama</p>\",\"<p>Amanat</p>\"]', '[\"c\"]', 0, '2026-01-02 16:43:01', '2026-01-02 16:43:01'),
 (16, 1, NULL, 2, 5, 1, 1, 4, 9, 'Kalimat “Ibu memasak di dapur” termasuk kalimat?', '[\"<p>Perintah</p>\",\"<p>Berita</p>\",\"<p>Tanya</p>\",\"<p>Seruan</p>\"]', '[\"b\"]', 0, '2026-01-02 16:43:01', '2026-01-02 16:43:01'),
 (17, 1, NULL, 2, 5, 1, 1, 4, 10, 'Huruf kapital digunakan pada awal?', '[\"<p>Kata sifat</p>\",\"<p>Kata kerja</p>\",\"<p>Kalimat</p>\",\"<p>Kata sambung</p>\"]', '[\"c\"]', 0, '2026-01-02 16:43:01', '2026-01-02 16:43:01'),
-(18, 1, NULL, 2, 5, 1, 1, 4, 11, 'Pesan moral dalam sebuah cerita disebut?', '[\"<p>Alur</p>\",\"<p>Latar</p>\",\"<p>Amanat</p>\",\"<p>Tokoh</p>\"]', '[\"c\"]', 0, '2026-01-02 16:43:01', '2026-01-02 16:43:01');
+(18, 1, NULL, 2, 5, 1, 1, 4, 11, 'Pesan moral dalam sebuah cerita disebut?', '[\"<p>Alur</p>\",\"<p>Latar</p>\",\"<p>Amanat</p>\",\"<p>Tokoh</p>\"]', '[\"c\"]', 0, '2026-01-02 16:43:01', '2026-01-02 16:43:01'),
+(19, 1, NULL, 2, 6, 4, 1, 4, 1, 'Hasil dari 12 x 5 adalah ...', '[\"<p>60</p>\",\"<p>50</p>\",\"<p>65</p>\",\"<p>55</p>\"]', '[\"a\"]', 0, '2026-02-25 08:33:29', '2026-02-25 08:33:29'),
+(20, 1, NULL, 2, 6, 4, 2, 5, 2, 'Manakah bilangan prima berikut ini?', '[\"<p>2</p>\",\"<p>4</p>\",\"<p>5</p>\",\"<p>9</p>\",\"<p>11</p>\"]', '[\"a\",\"c\",\"e\"]', 0, '2026-02-25 08:35:35', '2026-02-25 08:35:35'),
+(21, 1, NULL, 2, 6, 4, 3, 2, 3, 'Pernyataan: 0 adalah bilangan genap.', '[\"<p>Benar</p>\",\"<p>Salah</p>\"]', '[\"a\"]', 0, '2026-02-25 12:41:14', '2026-02-25 12:41:14'),
+(22, 1, NULL, 2, 6, 4, 4, 0, 4, 'Sebutkan hasil dari 7 + 8!', NULL, '[\"15\"]', 0, '2026-02-25 12:43:09', '2026-02-25 12:43:09'),
+(23, 1, NULL, 1, 6, 4, 5, 0, 5, 'Jelaskan perbedaan bilangan prima dan komposit!', NULL, '[\"Bilangan prima adalah bilangan yang hanya memiliki dua faktor yaitu 1 dan dirinya sendiri.\"]', 0, '2026-02-25 12:44:21', '2026-02-25 12:44:21');
 
 -- --------------------------------------------------------
 
@@ -180,7 +186,7 @@ INSERT INTO `exercise_items` (`id`, `admin_id`, `user_id`, `competence_id`, `exe
 --
 
 CREATE TABLE `exercise_models` (
-  `id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
   `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -206,10 +212,10 @@ INSERT INTO `exercise_models` (`id`, `name`, `created_at`, `updated_at`) VALUES
 --
 
 CREATE TABLE `exercise_points` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED NOT NULL,
-  `exercise_id` int(10) UNSIGNED NOT NULL,
-  `student_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED NOT NULL,
+  `exercise_id` bigint UNSIGNED NOT NULL,
+  `student_id` bigint UNSIGNED NOT NULL,
   `answer` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `exercise_point` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
@@ -221,14 +227,14 @@ CREATE TABLE `exercise_points` (
 --
 
 INSERT INTO `exercise_points` (`id`, `serial_id`, `exercise_id`, `student_id`, `answer`, `exercise_point`, `created_at`, `updated_at`) VALUES
-(6, 1, 4, 1, '{\"4\":\"b\",\"5\":\"c\",\"6\":\"a\",\"7\":\"b\"}', '25', '2025-12-19 21:15:10', '2025-12-19 21:15:10'),
 (7, 1, 2, 2, '{\"3\":\"a\"}', '0', '2025-12-27 22:35:46', '2025-12-27 22:35:46'),
 (9, 1, 4, 2, '{\"4\":\"a\",\"5\":\"b\",\"6\":\"a\",\"7\":\"a\"}', '75', '2026-01-01 21:09:07', '2026-01-01 21:09:07'),
-(10, 1, 5, 2, '{\"8\":\"a\",\"9\":\"c\",\"10\":\"d\",\"11\":\"c\",\"12\":\"b\",\"13\":\"c\",\"14\":\"a\",\"15\":\"c\",\"16\":\"b\",\"17\":\"c\",\"18\":\"c\"}', '100', '2026-01-02 09:48:50', '2026-01-02 09:48:50'),
 (11, 1, 1, 2, '{\"1\":\"a\",\"2\":\"c\"}', '100', '2026-01-03 09:13:24', '2026-01-03 09:13:24'),
-(14, 1, 2, 1, '{\"3\":\"a\"}', '0', '2026-01-07 10:00:27', '2026-01-07 10:00:27'),
-(15, 1, 1, 1, '{\"1\":\"a\",\"2\":\"c\"}', '100', '2026-01-07 10:11:51', '2026-01-07 10:11:51'),
-(16, 1, 5, 1, '{\"8\":\"a\",\"9\":\"c\",\"10\":\"d\",\"11\":\"c\",\"12\":\"b\",\"13\":\"c\",\"14\":\"a\",\"15\":\"c\",\"16\":\"b\",\"17\":\"c\",\"18\":\"c\"}', '100', '2026-01-07 21:04:30', '2026-01-07 21:04:30');
+(30, 1, 2, 1, '{\"3\":\"c\"}', '100', '2026-01-25 09:29:58', '2026-01-25 09:29:58'),
+(32, 1, 1, 1, '{\"1\":\"a\",\"2\":\"c\"}', '100', '2026-01-25 19:55:35', '2026-01-25 19:55:35'),
+(33, 1, 5, 1, '{\"8\":\"a\",\"9\":\"c\",\"10\":\"a\",\"11\":\"c\",\"12\":\"b\",\"13\":\"c\",\"14\":\"c\",\"15\":\"c\",\"16\":\"c\",\"17\":\"c\",\"18\":\"c\"}', '73', '2026-01-25 19:56:53', '2026-01-25 19:56:53'),
+(40, 1, 5, 2, '{\"8\":\"a\",\"9\":\"c\",\"10\":\"d\",\"11\":\"c\",\"12\":\"b\",\"13\":\"c\",\"14\":\"a\",\"15\":\"c\",\"16\":\"b\",\"17\":\"c\",\"18\":\"b\"}', '91', '2026-02-25 12:45:26', '2026-02-25 12:45:26'),
+(49, 1, 6, 1, '{\"19\":\"a\"}', NULL, '2026-03-06 00:07:43', '2026-03-06 00:07:43');
 
 -- --------------------------------------------------------
 
@@ -237,7 +243,7 @@ INSERT INTO `exercise_points` (`id`, `serial_id`, `exercise_id`, `student_id`, `
 --
 
 CREATE TABLE `exercise_types` (
-  `id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
   `kode` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
@@ -262,8 +268,8 @@ INSERT INTO `exercise_types` (`id`, `kode`, `name`, `created_at`, `updated_at`) 
 --
 
 CREATE TABLE `lessons` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `mapel_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `mapel_id` bigint UNSIGNED NOT NULL,
   `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `grade` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `semester` tinyint NOT NULL,
@@ -287,7 +293,7 @@ INSERT INTO `lessons` (`id`, `mapel_id`, `name`, `grade`, `semester`, `category`
 --
 
 CREATE TABLE `mapels` (
-  `id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
   `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
@@ -329,10 +335,10 @@ INSERT INTO `mapels` (`id`, `name`, `created_at`, `updated_at`) VALUES
 --
 
 CREATE TABLE `online_meetings` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED NOT NULL,
-  `classroom_id` int(10) UNSIGNED NOT NULL,
-  `user_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED NOT NULL,
+  `classroom_id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED NOT NULL,
   `title` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
   `description` text COLLATE utf8mb4_unicode_ci,
   `meeting_code` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -363,7 +369,9 @@ INSERT INTO `online_meetings` (`id`, `serial_id`, `classroom_id`, `user_id`, `ti
 (42, 1, 1, 1, 'IPA 2', 'online meet', 'meet-pC5yGUNube', '2026-01-02 04:10:40', '2026-01-02 04:13:22', 'ended', '2025-12-27 23:37:48', '2026-01-01 21:13:22'),
 (43, 1, 1, 1, 'B indo', 'oonon', 'meet-BZHq0LDF1T', '2025-12-28 08:40:00', NULL, 'upcoming', '2025-12-27 23:39:20', '2025-12-27 23:39:20'),
 (44, 1, 1, 1, 'LLLL', 'bbikbkkbj', 'meet-zYkVbzrnsr', '2025-12-31 15:41:00', NULL, 'upcoming', '2025-12-27 23:41:12', '2025-12-27 23:41:12'),
-(45, 1, 1, 1, 'Meet Online MTK', 'kelas online mtk', 'meet-g8QpIWizk1', '2026-01-08 04:06:10', '2026-01-08 04:08:04', 'ended', '2026-01-07 20:52:03', '2026-01-07 21:08:04');
+(45, 1, 1, 1, 'Meet Online MTK', 'kelas online mtk', 'meet-g8QpIWizk1', '2026-01-08 04:06:10', '2026-01-08 04:08:04', 'ended', '2026-01-07 20:52:03', '2026-01-07 21:08:04'),
+(46, 1, 1, 1, 'Online MTK', 'kelas online mtk dasar', 'meet-ARUVIIPHpA', '2026-01-26 08:26:00', NULL, 'upcoming', '2026-01-25 09:34:27', '2026-01-25 09:34:27'),
+(47, 1, 1, 1, 'B indo', 'ojopjaop', 'meet-E8t49elLgs', '2026-01-25 16:34:00', NULL, 'upcoming', '2026-01-25 09:34:53', '2026-01-25 09:34:53');
 
 -- --------------------------------------------------------
 
@@ -372,9 +380,9 @@ INSERT INTO `online_meetings` (`id`, `serial_id`, `classroom_id`, `user_id`, `ti
 --
 
 CREATE TABLE `online_meeting_participants` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `online_meeting_id` int(10) UNSIGNED NOT NULL,
-  `user_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `online_meeting_id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED NOT NULL,
   `role` enum('teacher','student') NOT NULL,
   `joined_at` datetime NOT NULL,
   `left_at` datetime DEFAULT NULL,
@@ -404,9 +412,9 @@ INSERT INTO `online_meeting_participants` (`id`, `online_meeting_id`, `user_id`,
 --
 
 CREATE TABLE `personal_access_tokens` (
-  `id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
   `tokenable_type` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `tokenable_id` int(10) UNSIGNED NOT NULL,
+  `tokenable_id` bigint UNSIGNED NOT NULL,
   `name` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `token` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,
   `abilities` text COLLATE utf8mb4_unicode_ci,
@@ -421,50 +429,7 @@ CREATE TABLE `personal_access_tokens` (
 --
 
 INSERT INTO `personal_access_tokens` (`id`, `tokenable_type`, `tokenable_id`, `name`, `token`, `abilities`, `last_used_at`, `expires_at`, `created_at`, `updated_at`) VALUES
-(62, 'App\\Models\\Student', 3, 'student_token', 'dad45c2715f177bb2f1e9ea7665612112e0fa51a18ef8799592edd481d245e46', '[\"*\"]', NULL, NULL, '2025-11-26 10:11:38', '2025-11-26 10:11:38'),
-(78, 'App\\Models\\Student', 1, 'student_token', '6192fbccbbb5d14a2400dd91695ea925daf01466bae3cb6033f6c3ab90ff529a', '[\"*\"]', NULL, NULL, '2025-11-26 23:35:40', '2025-11-26 23:35:40'),
-(79, 'App\\Models\\Student', 1, 'student_token', 'cccf61e55c707887ab168edacd9e0a9d2948502c90f02cfe5512de3c45112fc4', '[\"*\"]', NULL, NULL, '2025-11-26 23:35:42', '2025-11-26 23:35:42'),
-(81, 'App\\Models\\Student', 1, 'student_token', 'c3782d7d6b2e5af4da328d2dec40834873a592d9e322cfc1db5e4c23c2ec5cec', '[\"*\"]', NULL, NULL, '2025-11-26 23:41:02', '2025-11-26 23:41:02'),
-(83, 'App\\Models\\Student', 1, 'student_token', '7855ca513e0c35b20a827aaa13cea0a104308c5f69e0c4910e9e9280053b3589', '[\"*\"]', NULL, NULL, '2025-11-27 06:23:19', '2025-11-27 06:23:19'),
-(84, 'App\\Models\\Student', 1, 'student_token', '039f0a9b7caab22d8f628e7f9f0060f3b3ae9874d603b6e67c1790060252f544', '[\"*\"]', NULL, NULL, '2025-11-27 06:23:20', '2025-11-27 06:23:20'),
-(85, 'App\\Models\\Student', 1, 'student_token', '131629767c71fd61136e7720a59705fa4c1b71b3d8283a02e49eb82ebcf941de', '[\"*\"]', NULL, NULL, '2025-11-27 06:23:22', '2025-11-27 06:23:22'),
-(86, 'App\\Models\\Student', 1, 'student_token', 'b9e2dc39eb115f7e607b65eb330fba3c7a303c256c7bb25a499bddc7833dd4bc', '[\"*\"]', NULL, NULL, '2025-11-27 06:23:23', '2025-11-27 06:23:23'),
-(87, 'App\\Models\\Student', 1, 'student_token', '9783a59559a5af2ec0fd59597622d8ceeba2004ceebd690a9438ed518d8ae1e0', '[\"*\"]', NULL, NULL, '2025-11-27 06:23:25', '2025-11-27 06:23:25'),
-(89, 'App\\Models\\Student', 1, 'student_token', '829905bf788b2b57305f035e7ebcd6af3726129bd83ae13b08336d9879409093', '[\"*\"]', NULL, NULL, '2025-11-27 06:32:46', '2025-11-27 06:32:46'),
-(90, 'App\\Models\\Student', 1, 'student_token', '59b4c67bf8989e5c5b307ca0fdb6a328595c416457e3e218141bbe5239ae65d6', '[\"*\"]', NULL, NULL, '2025-11-27 06:32:51', '2025-11-27 06:32:51'),
-(92, 'App\\Models\\Student', 2, 'student_token', 'a935690aeace74bda76b937d196acb4601f9af7a15355a7f7f5e4f88cf80f78e', '[\"*\"]', NULL, NULL, '2025-11-27 06:39:58', '2025-11-27 06:39:58'),
-(93, 'App\\Models\\Student', 2, 'student_token', '05e4d0dbcd346a45b740aa04a7a2b9f6120fce035187d5a7272053d5bdd918f7', '[\"*\"]', '2025-11-27 06:41:31', NULL, '2025-11-27 06:41:21', '2025-11-27 06:41:31'),
-(100, 'App\\Models\\Student', 3, 'student_token', '666a803f3a22ac84542c853d8b435526071fd4feb910704ecdf8cadc347a751f', '[\"*\"]', '2025-11-27 07:08:44', NULL, '2025-11-27 07:08:28', '2025-11-27 07:08:44'),
-(101, 'App\\Models\\Student', 3, 'student_token', '36c2a0996f7dccc0974a56eb24365c96eaa8babec3e88c447da3a0fbebd652cc', '[\"*\"]', '2025-11-30 08:06:07', NULL, '2025-11-30 08:04:26', '2025-11-30 08:06:07'),
-(102, 'App\\Models\\Student', 1, 'student_token', '2d9acc869ad7ce0dd73cf8b470eb0a1b869d6eb863c43cccbae5c1c1245c164a', '[\"*\"]', '2025-12-05 02:59:26', NULL, '2025-11-30 08:07:03', '2025-12-05 02:59:26'),
-(103, 'App\\Models\\Student', 1, 'student_token', '62c7298120fc6c50d0c28f7edbbeffd5b9a4bc9d8a8f9f213bac201abd8d5c64', '[\"*\"]', '2025-11-30 19:34:30', NULL, '2025-11-30 19:05:02', '2025-11-30 19:34:30'),
-(104, 'App\\Models\\Student', 1, 'student_token', 'ac337ded1e45479926f038b381d0fc2026cfac45b47e0f96890dfb659fa9a50a', '[\"*\"]', '2025-11-30 20:23:36', NULL, '2025-11-30 19:51:56', '2025-11-30 20:23:36'),
-(106, 'App\\Models\\Student', 2, 'student_token', '97ba5a5cf005925817f45c451c158d88e9a6cfc5f44808200c1973921a3384d2', '[\"*\"]', '2025-12-04 08:55:01', NULL, '2025-12-04 08:54:01', '2025-12-04 08:55:01'),
-(111, 'App\\Models\\Student', 2, 'student_token', '54ccec73eb693ffc405ed88674d88e4b2742b9f4d018bcd2e401cdaa0c75dd34', '[\"*\"]', '2025-12-04 09:15:54', NULL, '2025-12-04 09:15:49', '2025-12-04 09:15:54'),
-(113, 'App\\Models\\Student', 1, 'student_token', '6827b6c47a40276e38c3992a377eca82795a21057e6a111948c57fc913c4f09c', '[\"*\"]', '2025-12-04 09:21:30', NULL, '2025-12-04 09:20:56', '2025-12-04 09:21:30'),
-(116, 'App\\Models\\Student', 1, 'student_token', '0e27b372b7230f45bc54dff245414703824751d32b3fed15c9f8b943b9b59417', '[\"*\"]', '2025-12-04 09:32:21', NULL, '2025-12-04 09:31:55', '2025-12-04 09:32:21'),
-(117, 'App\\Models\\Student', 1, 'student_token', '831272dab00e7513804d4b8edb85575fec843f79318d811ac7594552d3e2c239', '[\"*\"]', '2025-12-04 17:44:50', NULL, '2025-12-04 17:36:24', '2025-12-04 17:44:50'),
-(122, 'App\\Models\\Student', 1, 'student_token', '71d5c4bbb54a46f984c2f7ff684ea3aab10bc3d0c696c2b5168049b6892fec2d', '[\"*\"]', '2025-12-05 03:00:11', NULL, '2025-12-05 02:59:45', '2025-12-05 03:00:11'),
-(123, 'App\\Models\\Student', 2, 'student_token', 'e96a9366871a769afe1d0a3a4788d97800f084e94c0a3a74ccaffafebdb8ceaf', '[\"*\"]', '2025-12-05 03:28:44', NULL, '2025-12-05 03:00:20', '2025-12-05 03:28:44'),
-(124, 'App\\Models\\Student', 1, 'student_token', '8b6b734b1b4ab9bcddbad0e36390a7b0e906b4e40185610fdfeec64855944367', '[\"*\"]', '2025-12-05 03:03:58', NULL, '2025-12-05 03:03:33', '2025-12-05 03:03:58'),
-(129, 'App\\Models\\Student', 1, 'student_token', '61452eb0ff7e26abb3964cb9931ada127645edddba7df03024822953e53d8e7a', '[\"*\"]', '2025-12-10 09:14:37', NULL, '2025-12-05 03:29:41', '2025-12-10 09:14:37'),
-(133, 'App\\Models\\Student', 2, 'student_token', '6ca61a4d2b97991ee0595f2b5009ea5102a5acc9089ce21657285129f6013016', '[\"*\"]', '2025-12-05 04:25:02', NULL, '2025-12-05 04:23:04', '2025-12-05 04:25:02'),
-(136, 'App\\Models\\Student', 1, 'student_token', '65267c18ae52b829c0500eed0f25a78f8b7db07608c5556898692fbc9b3c3408', '[\"*\"]', '2025-12-08 02:48:48', NULL, '2025-12-08 02:48:46', '2025-12-08 02:48:48'),
-(137, 'App\\Models\\Student', 1, 'student_token', '07dfbc660b40be7bb95b8e9bb5d4bc74354c7b1723c895787b61fec3cba17a8d', '[\"*\"]', '2025-12-08 03:13:20', NULL, '2025-12-08 03:00:56', '2025-12-08 03:13:20'),
-(138, 'App\\Models\\Student', 2, 'student_token', 'd5b54012a807bd980736455191538528c13ffcf5ee04e6dee810e8a6a4141db4', '[\"*\"]', '2025-12-08 08:32:33', NULL, '2025-12-08 08:32:20', '2025-12-08 08:32:33'),
-(139, 'App\\Models\\Student', 2, 'student_token', '7ef2023528b2abdc0b6a92433651e26ea4b3a8d988a041e8aacf17dbcd250d4c', '[\"*\"]', '2025-12-08 08:54:15', NULL, '2025-12-08 08:51:30', '2025-12-08 08:54:15'),
-(140, 'App\\Models\\Student', 1, 'student_token', 'a67a5b65c482c758051e04c08ea3dd8ca631d9d2f5a47858142850a467993284', '[\"*\"]', '2025-12-09 00:34:57', NULL, '2025-12-09 00:14:26', '2025-12-09 00:34:57'),
-(142, 'App\\Models\\Student', 2, 'student_token', 'ca9cce6a83fc2116a61602b35fa1de5debe897111c1de0c44bd5c6da39e6f656', '[\"*\"]', '2025-12-09 01:10:38', NULL, '2025-12-09 01:05:45', '2025-12-09 01:10:38'),
-(144, 'App\\Models\\Student', 2, 'student_token', '861deb7c3cf7542cdb4563dfc1b5d523a82e72b721816c5bebe34a95d1a509fb', '[\"*\"]', '2025-12-10 10:25:02', NULL, '2025-12-10 08:26:17', '2025-12-10 10:25:02'),
-(145, 'App\\Models\\Student', 2, 'student_token', '345ff71b3ec56e196c1e0442e63ff7ec3f8eb12d8b843c51751fa917b44820ab', '[\"*\"]', '2025-12-16 04:42:39', NULL, '2025-12-10 09:15:01', '2025-12-16 04:42:39'),
-(147, 'App\\Models\\Student', 2, 'student_token', 'fe8ae7232531715afb5bdfbcadc6827ff186d3b764ea8ea85727c4ab614a0ca0', '[\"*\"]', '2025-12-15 22:31:56', NULL, '2025-12-14 10:11:26', '2025-12-15 22:31:56'),
-(149, 'App\\Models\\Student', 2, 'student_token', '0d10c64128d0ce66496b8c433b585f1aacd21fcf813958dcbe144bb64dc58c76', '[\"*\"]', '2025-12-19 21:10:58', NULL, '2025-12-16 04:44:17', '2025-12-19 21:10:58'),
-(150, 'App\\Models\\Student', 1, 'student_token', 'ef7f104c28636605aad19d867face22954185ce9599a9fa5e19eb9c901b715a3', '[\"*\"]', '2025-12-18 08:07:54', NULL, '2025-12-18 05:35:32', '2025-12-18 08:07:54'),
-(151, 'App\\Models\\Student', 1, 'student_token', '4538f807b3146866d83575ee37b821d99a4590cac020144616702b0b09b795be', '[\"*\"]', '2025-12-23 20:33:28', NULL, '2025-12-18 08:14:50', '2025-12-23 20:33:28'),
-(152, 'App\\Models\\Student', 1, 'student_token', '2f9dde0bc37084bce43f074e638da88c00c2ed2a1b4968f63c3cb09b3e30521e', '[\"*\"]', '2026-01-02 09:58:55', NULL, '2025-12-19 21:12:07', '2026-01-02 09:58:55'),
-(163, 'App\\Models\\Student', 2, 'student_token', 'dddb2b27772f99d95d9f4936ea861be83c7a64dce23e5b0af8db9a5a6e1f2a06', '[\"*\"]', '2026-01-02 12:41:29', NULL, '2026-01-02 09:59:53', '2026-01-02 12:41:29'),
-(164, 'App\\Models\\Student', 2, 'student_token', '4517887db7022b6cb2a67537e85bd1fc68a7486b44392b9c8d7c08bc406eeee2', '[\"*\"]', '2026-01-03 10:16:32', NULL, '2026-01-03 10:02:45', '2026-01-03 10:16:32'),
-(169, 'App\\Models\\Student', 1, 'student_token', '7a05fc1fe85448d33caaae2eb3264d9070d5900b959dbdddac4189221a50ebe6', '[\"*\"]', '2026-01-08 00:24:48', NULL, '2026-01-08 00:17:08', '2026-01-08 00:24:48');
+(180, 'App\\Models\\Student', 1, 'student_token', 'b66c776550dd488568c2d82fc5919687f1d7cbf0b9d25d2647b7cd80da4d98c5', '[\"*\"]', '2026-03-06 00:16:05', NULL, '2026-03-05 22:46:54', '2026-03-06 00:16:05');
 
 -- --------------------------------------------------------
 
@@ -473,10 +438,10 @@ INSERT INTO `personal_access_tokens` (`id`, `tokenable_type`, `tokenable_id`, `n
 --
 
 CREATE TABLE `posts` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED NOT NULL,
-  `user_id` int(10) UNSIGNED NOT NULL,
-  `mapel_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED NOT NULL,
+  `mapel_id` bigint UNSIGNED NOT NULL,
   `title` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
   `description` text COLLATE utf8mb4_unicode_ci,
   `slug` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -501,12 +466,13 @@ INSERT INTO `posts` (`id`, `serial_id`, `user_id`, `mapel_id`, `title`, `descrip
 (4, 1, 1, 1, 'BPUPKI', 'Pengertian BPUPKI adalah', 'BPUPKI & PPKI', NULL, NULL, NULL, '2025-11-20 03:07:51', '[\"VII\"]', 1, '2025-11-20 03:07:51', '2025-11-20 03:07:51'),
 (5, 1, 1, 15, 'Wayang', 'Tokoh-tokoh dalam pewayangan', '', NULL, 'wayang.pdf', '', NULL, '[\"VII\"]', 0, '2025-11-20 05:51:15', '2025-11-20 05:51:15'),
 (6, 1, 1, 7, 'Kebugaran Jasmani', 'Olahraga sehaari hari', '', 'https://www.halodoc.com/artikel/15-jenis-olahraga-kardio-yang-bisa-dilakukan-di-rumah?srsltid=AfmBOooVvhIUxfPU_CgbGihb70wihRmWNKOpfEBsgY4nib-73wrOCFPY', 'olahrga.pdf', '<iframe src=\"https://www.youtube.com/embed/CpUKc28uPEk?si=b71fmAKQ8OoE-1i3\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>', NULL, '[\"IV\"]', 0, '2025-11-20 11:43:14', '2025-11-20 11:43:14'),
-(11, 1, 1, 4, 'Tumbuhan', 'bagian tumbuhan air', 'tumbuhan-1763823676', 'https://www.ruangguru.com/blog/organ-tumbuhan', 'Pemberitahuan Bantuan UKT_SPP Tahun 2025.pdf', NULL, '2025-11-24 15:01:32', '[\"IV\"]', 1, '2025-11-22 08:01:16', '2025-11-22 08:01:16'),
+(11, 1, 1, 4, 'Tumbuhan', 'bagian tumbuhan air', 'tumbuhan-1763823676', 'https://www.ruangguru.com/blog/organ-tumbuhan', 'Pemberitahuan Bantuan UKT_SPP Tahun 2025.pdf', NULL, '2026-01-30 15:01:32', '[\"IV\"]', 1, '2025-11-22 08:01:16', '2025-11-22 08:01:16'),
 (12, 1, 1, 3, 'Belajar Nama Hewan', 'Hewan darat, air, dan amphibi', 'belajar-nama-hewan-1765768582', 'https://www.ruangguru.com/blog/organ-tumbuhan', 'Surat_Undangan_Tamu.pdf', NULL, NULL, '[\"VII\"]', 0, '2025-12-14 20:16:25', '2025-12-14 20:16:25'),
 (18, 1, 1, 7, 'Diet Karbo', 'Enakkkk', 'diet-karbo-1765866059', 'https://www.ruangguru.com/blog/organ-tumbuhan', 'posts/1765866059_tugas-4a-tari-14-may-2025.pdf', NULL, NULL, NULL, 0, '2025-12-15 23:20:59', '2025-12-15 23:20:59'),
-(19, 1, 1, 3, 'Kosa Kata', 'kosakata indonesia', 'kosa-kata-1765884463', 'https://leit.co.id/500-kosakata-bahasa-inggris-sehari-hari-dan-artinya/', 'posts/1765884463_use-case-diagram.pdf', NULL, '2025-12-31 11:28:05', '[\"VII\"]', 1, '2025-12-16 04:27:43', '2025-12-16 04:27:43'),
+(19, 1, 1, 3, 'Kosa Kata', 'kosakata indonesia', 'kosa-kata-1765884463', 'https://leit.co.id/500-kosakata-bahasa-inggris-sehari-hari-dan-artinya/', 'posts/1765884463_use-case-diagram.pdf', NULL, '2026-01-30 11:28:05', '[\"VII\"]', 1, '2025-12-16 04:27:43', '2025-12-16 04:27:43'),
 (20, 1, 1, 14, 'Inggris Lesson', 'Tugas Inggres', 'inggris-lesson', 'https://www.vocabulary.com/dictionary/', NULL, '<iframe src=\"https://www.youtube.com/embed/NoIYUJFu0ck?si=nQE6NADXIFxYJF_7\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>', '2026-01-04 17:11:24', '[\"VII\"]', 1, '2025-12-30 17:11:24', '2025-12-30 17:11:24'),
-(21, 1, 1, 15, 'Wayang Kulit', 'Macam-macam wayang', 'wayang-kulit', 'https://id.wikipedia.org/wiki/Wayang', NULL, '<iframe src=\"https://www.youtube.com/embed/NoIYUJFu0ck?si=p81c_MfjytD9ZI8t\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>', '2026-01-13 18:52:41', '[\"VI\"]', 1, '2025-12-30 18:52:41', '2025-12-30 18:52:41');
+(21, 1, 1, 15, 'Wayang Kulit', 'Macam-macam wayang', 'wayang-kulit', 'https://id.wikipedia.org/wiki/Wayang', NULL, '<iframe src=\"https://www.youtube.com/embed/NoIYUJFu0ck?si=p81c_MfjytD9ZI8t\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>', '2026-01-29 18:52:41', '[\"VI\"]', 1, '2025-12-30 18:52:41', '2025-12-30 18:52:41'),
+(22, 1, 1, 4, 'Anatomi', 'Anatomi tubuh manusia', 'anatomi-1769359681', 'https://www.alodokter.com/mengenal-anatomi-tubuh-manusia-beserta-fungsinya', 'posts/1769359681_interseptor-axios-dan-backend-tanpa-route.docx', '<iframe src=\"https://www.youtube.com/embed/Dmqt8zubMrI?si=6oL-xSSTZRWuQoGd\" title=\"YouTube video player\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>', NULL, '[\"V\"]', 0, '2026-01-25 09:48:01', '2026-01-25 09:48:01');
 
 -- --------------------------------------------------------
 
@@ -515,10 +481,10 @@ INSERT INTO `posts` (`id`, `serial_id`, `user_id`, `mapel_id`, `title`, `descrip
 --
 
 CREATE TABLE `post_child_comments` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `post_comment_id` int(10) UNSIGNED NOT NULL,
-  `user_id` int(10) UNSIGNED DEFAULT NULL,
-  `student_id` int(10) UNSIGNED DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `post_comment_id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED DEFAULT NULL,
+  `student_id` bigint UNSIGNED DEFAULT NULL,
   `message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `is_user` tinyint(1) NOT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
@@ -546,10 +512,10 @@ INSERT INTO `post_child_comments` (`id`, `post_comment_id`, `user_id`, `student_
 --
 
 CREATE TABLE `post_comments` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `post_id` int(10) UNSIGNED NOT NULL,
-  `user_id` int(10) UNSIGNED DEFAULT NULL,
-  `student_id` int(10) UNSIGNED DEFAULT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `post_id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED DEFAULT NULL,
+  `student_id` bigint UNSIGNED DEFAULT NULL,
   `message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `is_user` tinyint(1) NOT NULL DEFAULT '0',
@@ -576,7 +542,9 @@ INSERT INTO `post_comments` (`id`, `post_id`, `user_id`, `student_id`, `message`
 (16, 19, NULL, 2, 'oii', 'CMT69541d6fc4216', 0, '2025-12-30 11:43:59', '2025-12-30 11:43:59'),
 (17, 5, NULL, 2, 'halo bu', 'CMT6954268a0713c', 0, '2025-12-30 12:22:50', '2025-12-30 12:22:50'),
 (18, 21, NULL, 2, 'apa ini bu', 'CMT6954269abf370', 0, '2025-12-30 12:23:06', '2025-12-30 12:23:06'),
-(21, 21, NULL, 1, 'tes', 'CMT695f2c8a0e92a', 0, '2026-01-07 21:03:22', '2026-01-07 21:03:22');
+(21, 21, NULL, 1, 'tes', 'CMT695f2c8a0e92a', 0, '2026-01-07 21:03:22', '2026-01-07 21:03:22'),
+(23, 22, NULL, 2, 'oke bu guru', 'CMT699e97eeec20b', 0, '2026-02-24 23:34:22', '2026-02-24 23:34:36'),
+(24, 22, NULL, 1, 'tes', 'CMT69a2672c7d7b6', 0, '2026-02-27 20:55:24', '2026-02-27 20:55:24');
 
 -- --------------------------------------------------------
 
@@ -585,8 +553,8 @@ INSERT INTO `post_comments` (`id`, `post_id`, `user_id`, `student_id`, `message`
 --
 
 CREATE TABLE `products` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `lesson_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `lesson_id` bigint UNSIGNED NOT NULL,
   `name` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `grade` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `grade_category` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -605,13 +573,47 @@ INSERT INTO `products` (`id`, `lesson_id`, `name`, `grade`, `grade_category`, `s
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `quiz_activity_logs`
+--
+
+CREATE TABLE `quiz_activity_logs` (
+  `id` bigint UNSIGNED NOT NULL,
+  `student_id` bigint UNSIGNED NOT NULL,
+  `exercise_id` bigint UNSIGNED NOT NULL,
+  `event_type` varchar(50) NOT NULL,
+  `duration_seconds` int DEFAULT NULL,
+  `suspicious_flag` tinyint(1) DEFAULT '0',
+  `device_info` text,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `quiz_activity_logs`
+--
+
+INSERT INTO `quiz_activity_logs` (`id`, `student_id`, `exercise_id`, `event_type`, `duration_seconds`, `suspicious_flag`, `device_info`, `ip_address`, `created_at`) VALUES
+(13, 1, 6, 'BACK_BUTTON_BLOCKED', NULL, 0, NULL, '192.168.101.70', '2026-02-26 07:51:34'),
+(14, 1, 6, 'APP_BACKGROUND', NULL, 0, NULL, '192.168.101.70', '2026-02-26 07:51:42'),
+(15, 1, 6, 'APP_RESUME', 8, 1, NULL, '192.168.101.70', '2026-02-26 07:51:51'),
+(16, 1, 6, 'RECONNECTED', NULL, 0, NULL, '192.168.43.68', '2026-03-06 00:05:44'),
+(17, 1, 6, 'APP_BACKGROUND', NULL, 0, NULL, '192.168.43.68', '2026-03-06 00:05:50'),
+(18, 1, 6, 'APP_RESUME', 2, 0, NULL, '192.168.43.68', '2026-03-06 00:05:53'),
+(19, 1, 6, 'APP_BACKGROUND', NULL, 0, NULL, '192.168.43.68', '2026-03-06 00:06:07'),
+(20, 1, 6, 'APP_BACKGROUND', NULL, 0, NULL, '192.168.43.68', '2026-03-06 00:06:08'),
+(21, 1, 6, 'APP_RESUME', 4, 0, NULL, '192.168.43.68', '2026-03-06 00:06:12'),
+(22, 1, 6, 'APP_RESUME', 4, 0, NULL, '192.168.43.68', '2026-03-06 00:06:13');
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `reports`
 --
 
 CREATE TABLE `reports` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED NOT NULL,
-  `student_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED NOT NULL,
+  `student_id` bigint UNSIGNED NOT NULL,
   `report` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `img` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
@@ -637,9 +639,9 @@ INSERT INTO `reports` (`id`, `serial_id`, `student_id`, `report`, `img`, `create
 --
 
 CREATE TABLE `serials` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `user_id` int(10) UNSIGNED DEFAULT NULL,
-  `product_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED DEFAULT NULL,
+  `product_id` bigint UNSIGNED NOT NULL,
   `serial` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `paket` varchar(1) COLLATE utf8mb4_unicode_ci NOT NULL,
   `active` varchar(3) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -663,7 +665,7 @@ INSERT INTO `serials` (`id`, `user_id`, `product_id`, `serial`, `paket`, `active
 
 CREATE TABLE `sessions` (
   `id` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `user_id` int(10) UNSIGNED DEFAULT NULL,
+  `user_id` bigint UNSIGNED DEFAULT NULL,
   `ip_address` varchar(45) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `user_agent` text COLLATE utf8mb4_unicode_ci,
   `payload` longtext COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -682,13 +684,16 @@ INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, 
 ('ciNkFbylhpvj1NZg6PTYbIy6jIx1UaTffAfEwQ3Q', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiMHVPUnZnUEJ6cTNDdzY3Tk16Q2JGd2d1VWJ2QmtwOENQb2dIejRNWCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDc6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL3Bvc3RzLzE4L2NvbW1lbnRzIjtzOjU6InJvdXRlIjtzOjIyOiJ0ZWFjaGVyLmNvbW1lbnRzLmluZGV4Ijt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1766962395),
 ('esC7TLDuEqbZvoAcxPJ0cmx8qbLAQbB5HhHvXeQg', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiRlNZNkpBZTd4YnhxVWxCZlQwb0toenQxT1NpNW9GWHhsTnlGdjBZUiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1767811209),
 ('gINqgIYfU1cE6kBZJBk9OJTLrKx76jrg6fpwWqcS', 1, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTo0OntzOjY6Il90b2tlbiI7czo0MDoiVlVpU0puclVJQnNnVmJyS3hJaGFLdEd2YVZsYzljQ2VDVmJQVElGdCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fXM6NTA6ImxvZ2luX3dlYl81OWJhMzZhZGRjMmIyZjk0MDE1ODBmMDE0YzdmNThlYTRlMzA5ODlkIjtpOjE7fQ==', 1766765703),
+('JQ9060e76ob4FvslQNtTI2sLu7XAxovZOb8l8jPY', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiWm5TRkpQaDg5T1NZNFlTWHZxcXhBNW52WGQxODhYak1ZUTFpcjZ0SyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL3Bvc3RzL2NyZWF0ZSI7czo1OiJyb3V0ZSI7czoyMDoidGVhY2hlci5wb3N0cy5jcmVhdGUiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX19', 1769359682),
 ('kG55CW56dK2L4XGVEsiR7tvUM5A1UHbbOJHwhTOV', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoibVEzVDBqUXR3MUM0WjVpbzJlOEFCdm5QN1lTN0EzdjlBQTZvMll6QyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7Tjt9czo2OiJfZmxhc2giO2E6Mjp7czozOiJvbGQiO2E6MDp7fXM6MzoibmV3IjthOjA6e319fQ==', 1766735121),
+('L4aoEnnAYaFqCdPeDqVvOTj0fX3owvLmMOVmsJto', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiWXlBSG9RbXBCTjZsWGp2ZDJpTnRRVFdib1U3UzNMUlh2dkhaR3JDUCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1768244494),
 ('MrgxgvZuz5zAOlh0aQitqQxGObm6GWD2rtdUrk2q', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiT0xLb3V3cUN6Qjl5N0N6akIzdzVGc091Yzd3aWVmRHhmWFhQSjNOdSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1767327203),
 ('MTAxDUmQYPEDuNshzlHbgITMWvSNhNmPnxRUeWL8', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoid2VnQzdxWXN1N3lDaXNraDFEWVJ2R1JPRE9LYW9EQ043Wk5YUkczSSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDY6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL3Bvc3RzLzUvY29tbWVudHMiO3M6NToicm91dGUiO3M6MjI6InRlYWNoZXIuY29tbWVudHMuaW5kZXgiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX19', 1766950425),
 ('Qf4ZTHNUCxvHhkG94XsFYDqumpCtNeFR0dvczQBd', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiWDFYa2FPelBudlBpUXFuVEZiM3BlNmRBTFZ5WHNMSE1hYWR6c2xMSyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1768067679),
 ('QJDH22moae8JPk3c1xqetrIUGs2jG2xik4RVS7Ir', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiVVpnTDVkVEZqME43dVFPYXFoSnBTbEZ5cEhwYm93a1ltd1JTaE9VeiI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1767548175),
 ('QukMh3ILVGe77iJBp6RBqmK46ZY3wggFzNsQ7MQE', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoibmduVW1nUG1GdnVLSVpqRlhRR3ZOMUl2RmRPSTkxSVRLMUZCcVpVYyI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1766904073),
 ('smM4rFx8EIH4PrXehto6Xet5au3blfMCfkAzef4k', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiczdPM0YweDA5U0s1bXVPWElsUU9VY09xdmpCeEhjeWgyS0dnT0VJTCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1767327041),
+('vxTDxDZQ8IGK47lt931cxXZZK7HR3ynj6IakI7De', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiSjhVUlJCTmpEOUROOW0xTXpLUExoeFBTZWZXMUhsYmd0eHVqOEM2UCI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDI6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL3Bvc3RzL2NyZWF0ZSI7czo1OiJyb3V0ZSI7czoyMDoidGVhY2hlci5wb3N0cy5jcmVhdGUiO31zOjY6Il9mbGFzaCI7YToyOntzOjM6Im9sZCI7YTowOnt9czozOiJuZXciO2E6MDp7fX19', 1768919709),
 ('ZNNk01TNMNi6dJCHzn5uzNJBSDHyvW03aLEppMMG', NULL, '127.0.0.1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36', 'YTozOntzOjY6Il90b2tlbiI7czo0MDoiaW5VRWtSdzdvTFR4MVROUjVvWlcxR254akFjbzhyejl0aDZOZmxUZSI7czo5OiJfcHJldmlvdXMiO2E6Mjp7czozOiJ1cmwiO3M6NDU6Imh0dHA6Ly9sb2NhbGhvc3Q6ODAwMC90ZWFjaGVyL29ubGluZS1tZWV0aW5ncyI7czo1OiJyb3V0ZSI7czoyMjoidGVhY2hlci5tZWV0aW5ncy5pbmRleCI7fXM6NjoiX2ZsYXNoIjthOjI6e3M6Mzoib2xkIjthOjA6e31zOjM6Im5ldyI7YTowOnt9fX0=', 1767811261);
 
 -- --------------------------------------------------------
@@ -698,10 +703,10 @@ INSERT INTO `sessions` (`id`, `user_id`, `ip_address`, `user_agent`, `payload`, 
 --
 
 CREATE TABLE `students` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED NOT NULL,
-  `user_id` int(10) UNSIGNED NOT NULL,
-  `classroom_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED NOT NULL,
+  `user_id` bigint UNSIGNED NOT NULL,
+  `classroom_id` bigint UNSIGNED NOT NULL,
   `name` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL,
   `username` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `password` varchar(150) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -720,8 +725,8 @@ CREATE TABLE `students` (
 --
 
 INSERT INTO `students` (`id`, `serial_id`, `user_id`, `classroom_id`, `name`, `username`, `password`, `password_text`, `nis`, `absen_number`, `email`, `phone`, `photo`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, 1, 'Reno Saputra', 'reno', '$2y$12$en4h66VY0JPVc1bXjwf/We.nxW9goxBSOgBjeY2Vq/ma80K3AtKDW', 'reno123', '2025001', 1, 'reno@student.com', '08122334455', 'students/FxMZKrR7K7nwW59Q7uWrd3R7gpYFA9HEvd9Rm4bD.jpg', '2025-11-18 08:26:57', '2025-12-28 12:03:11'),
-(2, 1, 1, 1, 'Budi Santoso Raul', 'budi', '$2y$12$RUsCa0Itl4t8QFGqr3/E8OM8kJMuIWTgP61hMKOMBsWhZw0zrkb4S', 'budi12345', '8983978923', 2, 'budiraul34@gmail.com', '08395566877', 'students/0GHqOwKcIWIupI69Cq5YDn33v7IhnKv1FMeQRFLY.jpg', '2025-11-22 10:21:15', '2026-01-01 21:09:51'),
+(1, 1, 1, 1, 'Reno Saputra', 'reno', '$2y$12$en4h66VY0JPVc1bXjwf/We.nxW9goxBSOgBjeY2Vq/ma80K3AtKDW', 'reno123', '2025001', 1, 'reno@student.com', '08122334455', 'students/twz2bJw0BcLggnXfcBpOn6r91whcDrYU2K0V3fQT.jpg', '2025-11-18 08:26:57', '2026-02-25 12:56:09'),
+(2, 1, 1, 1, 'Budi Santoso Raul', 'budi', '$2y$12$RUsCa0Itl4t8QFGqr3/E8OM8kJMuIWTgP61hMKOMBsWhZw0zrkb4S', 'budi12345', '8983978923', 2, 'budiraul34@gmail.com', '08395566877', 'students/GbXqFMLWPh8MjuyhVNtULB6oTnLujZuKBpDH2aZC.jpg', '2025-11-22 10:21:15', '2026-03-05 22:45:31'),
 (3, 1, 1, 2, 'Heri Kopling', 'heri', '$2y$12$c9TMGJ4HhKqvk6rqqX1OB.B9AYCWuCe.OQoyQQTLM0PGRRwfXD6sS', 'heri123', '83926362', NULL, 'heri@gmail.com', '08382263548', NULL, '2025-11-26 16:33:06', '2025-11-26 16:33:06');
 
 -- --------------------------------------------------------
@@ -731,10 +736,10 @@ INSERT INTO `students` (`id`, `serial_id`, `user_id`, `classroom_id`, `name`, `u
 --
 
 CREATE TABLE `tasks` (
-  `id` int(10) UNSIGNED NOT NULL,
-  `serial_id` int(10) UNSIGNED NOT NULL,
-  `post_id` int(10) UNSIGNED NOT NULL,
-  `student_id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
+  `serial_id` bigint UNSIGNED NOT NULL,
+  `post_id` bigint UNSIGNED NOT NULL,
+  `student_id` bigint UNSIGNED NOT NULL,
   `description` text COLLATE utf8mb4_unicode_ci NOT NULL,
   `attachment` text COLLATE utf8mb4_unicode_ci,
   `point` varchar(3) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
@@ -747,13 +752,8 @@ CREATE TABLE `tasks` (
 --
 
 INSERT INTO `tasks` (`id`, `serial_id`, `post_id`, `student_id`, `description`, `attachment`, `point`, `created_at`, `updated_at`) VALUES
-(9, 1, 4, 1, 'ini tugas saya bu', 'Screenshot_2025-11-19-17-54-34-629_com.example.lms_frontend.jpg', '85', '2025-11-17 06:19:03', '2025-11-17 06:19:03'),
-(10, 1, 1, 1, 'tugas saya', 'KRS_5220311133_Ganjil_21_09_2025_11_54_03.pdf', '78', '2025-11-21 06:31:38', '2025-11-21 06:31:38'),
-(11, 1, 11, 1, 'tugas tumbuhan', '1763827641_admin,+Pengujian+dengan+Unit+Testing+dan+Test+case+pada+Proyek+Pengembangan+Modul+Manajemen+Pengguna.pdf', '83', '2025-11-22 09:07:21', '2025-11-22 09:07:21'),
-(12, 1, 19, 2, 'tugas indo', '1765884804_IMG_20251212_181102.png', '84', '2025-12-16 04:33:24', '2025-12-16 04:33:24'),
-(13, 1, 20, 2, 'tugas inggris', '1767117245_1765866059_tugas-4a-tari-14-may-2025 (3).pdf', '98', '2025-12-30 10:54:05', '2025-12-30 10:54:05'),
-(14, 1, 21, 2, 'tugas saya', '1767326901_1765866059_tugas-4a-tari-14-may-2025 (4).pdf', '78', '2026-01-01 21:08:21', '2026-01-01 21:08:21'),
-(15, 1, 21, 1, 'tugas a', '1767845306_Screenshot_2026-01-08-00-26-46-160_com.example.lms_frontend.jpg', '90', '2026-01-07 21:08:26', '2026-01-07 21:08:26');
+(17, 1, 21, 1, 'tugas wayang', '1769358212_Screenshot_2026-01-22-20-13-05-737_lockscreen.jpg', '80', '2026-01-25 09:23:32', '2026-01-25 09:23:32'),
+(18, 1, 19, 1, 'tugas kosa kata', '1769358238_IMG-20260123-WA0000.jpg', NULL, '2026-01-25 09:23:58', '2026-01-25 09:23:58');
 
 -- --------------------------------------------------------
 
@@ -762,7 +762,7 @@ INSERT INTO `tasks` (`id`, `serial_id`, `post_id`, `student_id`, `description`, 
 --
 
 CREATE TABLE `users` (
-  `id` int(10) UNSIGNED NOT NULL,
+  `id` bigint UNSIGNED NOT NULL,
   `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `username` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `password` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -929,6 +929,14 @@ ALTER TABLE `products`
   ADD KEY `products_lesson_id_foreign` (`lesson_id`);
 
 --
+-- Indexes for table `quiz_activity_logs`
+--
+ALTER TABLE `quiz_activity_logs`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_qal_student` (`student_id`),
+  ADD KEY `fk_qal_exercise` (`exercise_id`);
+
+--
 -- Indexes for table `reports`
 --
 ALTER TABLE `reports`
@@ -986,133 +994,139 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `admins`
 --
 ALTER TABLE `admins`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `classrooms`
 --
 ALTER TABLE `classrooms`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `competences`
 --
 ALTER TABLE `competences`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `exercises`
 --
 ALTER TABLE `exercises`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT for table `exercise_items`
 --
 ALTER TABLE `exercise_items`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `exercise_models`
 --
 ALTER TABLE `exercise_models`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `exercise_points`
 --
 ALTER TABLE `exercise_points`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
 
 --
 -- AUTO_INCREMENT for table `exercise_types`
 --
 ALTER TABLE `exercise_types`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- AUTO_INCREMENT for table `lessons`
 --
 ALTER TABLE `lessons`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `mapels`
 --
 ALTER TABLE `mapels`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `online_meetings`
 --
 ALTER TABLE `online_meetings`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=46;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
 
 --
 -- AUTO_INCREMENT for table `online_meeting_participants`
 --
 ALTER TABLE `online_meeting_participants`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- AUTO_INCREMENT for table `personal_access_tokens`
 --
 ALTER TABLE `personal_access_tokens`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=170;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=181;
 
 --
 -- AUTO_INCREMENT for table `posts`
 --
 ALTER TABLE `posts`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT for table `post_child_comments`
 --
 ALTER TABLE `post_child_comments`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `post_comments`
 --
 ALTER TABLE `post_comments`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
 
 --
 -- AUTO_INCREMENT for table `products`
 --
 ALTER TABLE `products`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `quiz_activity_logs`
+--
+ALTER TABLE `quiz_activity_logs`
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=23;
 
 --
 -- AUTO_INCREMENT for table `reports`
 --
 ALTER TABLE `reports`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `serials`
 --
 ALTER TABLE `serials`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `tasks`
 --
 ALTER TABLE `tasks`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- Constraints for dumped tables
@@ -1208,6 +1222,13 @@ ALTER TABLE `post_comments`
 --
 ALTER TABLE `products`
   ADD CONSTRAINT `products_lesson_id_foreign` FOREIGN KEY (`lesson_id`) REFERENCES `lessons` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `quiz_activity_logs`
+--
+ALTER TABLE `quiz_activity_logs`
+  ADD CONSTRAINT `fk_qal_exercise` FOREIGN KEY (`exercise_id`) REFERENCES `exercises` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  ADD CONSTRAINT `fk_qal_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `reports`

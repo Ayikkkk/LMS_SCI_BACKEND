@@ -25,7 +25,8 @@ Route::prefix('student')->group(function () {
      * AUTH (PUBLIC)
      * ==========================
      */
-    Route::post('/login', [AuthController::class, 'login']);
+    // Rate limit: max 5 attempts per minute per IP
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
     /**
      * ==========================
@@ -132,7 +133,6 @@ Route::prefix('student')->group(function () {
         // Download PDF rekap nilai
         Route::get('/grades/rekap-mapel/pdf', [GradeController::class, 'downloadRecapPdf']);
 
-
         /**
          * --------------------------
          * COMMENTS
@@ -142,7 +142,6 @@ Route::prefix('student')->group(function () {
         Route::post('/posts/{post}/comments', [PostCommentController::class, 'store']);
         Route::put('/comments/{comment}', [PostCommentController::class, 'update']);
         Route::delete('/comments/{comment}', [PostCommentController::class, 'destroy']);
-
         Route::post('/comments/{comment}/reply', [PostChildCommentController::class, 'store']);
         Route::put('/replies/{reply}', [PostChildCommentController::class, 'update']);
         Route::delete('/replies/{reply}', [PostChildCommentController::class, 'destroy']);

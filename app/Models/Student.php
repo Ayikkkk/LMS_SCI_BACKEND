@@ -6,13 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Student extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     // Jika nama tabel bukan plural default, tambahkan protected $table = 'students';
     // protected $table = 'students';
@@ -25,11 +25,10 @@ class Student extends Authenticatable
         'username',
         'email',
         'password',
-        'password_text',
         'phone',
         'photo',
         'absen_number',
-        'classroom_id', // sesuaikan dengan kolom di DB
+        'classroom_id',
         'user_id',
         'serial_id',
         'nis',
@@ -47,10 +46,11 @@ class Student extends Authenticatable
      * Casts (tambahan jika diperlukan)
      */
     protected $casts = [
-        'id' => 'int',
-        'classroom_id' => 'int',
-        'user_id' => 'int',
-        'serial_id' => 'int',
+        'id'           => 'integer',
+        'classroom_id' => 'integer',
+        'user_id'      => 'integer',
+        'serial_id'    => 'integer',
+        'absen_number' => 'integer',
     ];
 
     /**
@@ -104,19 +104,18 @@ class Student extends Authenticatable
         }
     }
 
-    // Accessor untuk memberikan URL penuh photo
-    public function getPhotoUrlAttribute()
+    // Accessor — returns /storage/... relative path, never a full URL.
+    // Use request()->getSchemeAndHttpHost() + this value to build full URL in controllers.
+    public function getPhotoUrlAttribute(): ?string
     {
         if (empty($this->photo)) return null;
 
-        // Storage::url($this->photo) biasanya mengembalikan '/storage/...'
-        // url(...) membuatnya absolute URL berdasarkan APP_URL
-        try {
-            return url(Storage::url($this->photo));
-        } catch (\Throwable $e) {
-            // fallback ke nilai langsung (jika sudah URL)
-            return $this->photo;
+        if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://')) {
+            // Legacy full URL — return only the /storage/... path
+            return parse_url($this->photo, PHP_URL_PATH);
         }
+
+        return '/storage/' . $this->photo;
     }
 
     /**

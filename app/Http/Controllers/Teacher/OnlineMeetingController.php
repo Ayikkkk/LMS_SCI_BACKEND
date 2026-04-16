@@ -12,17 +12,18 @@ use App\Models\OnlineMeeting;
 use App\Models\OnlineMeetingParticipant;
 use App\Models\Classroom;
 use App\Models\Serial;
-use App\Models\User;
 
 class OnlineMeetingController extends Controller
 {
-    /**
-     * Temporary fallback untuk testing
-     * ⚠️ PRODUKSI: hapus User::findOrFail(1)
-     */
     private function getTeacher()
     {
-        return Auth::user() ?? User::findOrFail(1);
+        $teacher = Auth::user();
+
+        if (!$teacher) {
+            abort(401, 'Unauthenticated.');
+        }
+
+        return $teacher;
     }
 
     public function index()

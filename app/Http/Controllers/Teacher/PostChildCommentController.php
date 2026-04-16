@@ -7,13 +7,14 @@ use Illuminate\Http\Request;
 use App\Models\PostChildComment;
 use App\Models\PostComment;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
 
 class PostChildCommentController extends Controller
 {
     private function getTeacher()
     {
-        return Auth::user() ?? User::first();
+        $teacher = Auth::user();
+        if (!$teacher) abort(401, 'Unauthenticated.');
+        return $teacher;
     }
 
     public function store(Request $request, PostComment $comment)

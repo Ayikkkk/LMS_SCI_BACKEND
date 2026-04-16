@@ -15,22 +15,30 @@ class PostController extends Controller
      */
     public function materials(Request $request)
     {
-        $student = $request->user('student');
+        $student = $request->user();
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
 
         $materials = Post::with('mapel')
             ->where('serial_id', $student->serial_id)
             ->where('is_task', 0)
             ->orderBy('id', 'desc')
-            ->get();
+            ->paginate($perPage);
 
-        $materials->each(function ($material) {
+        $materials->getCollection()->transform(function ($material) {
             $material->subject_name = $material->mapel->name ?? 'Mapel Tidak Diketahui';
             unset($material->mapel);
+            return $material;
         });
 
         return response()->json([
             'success' => true,
-            'materials' => $materials
+            'materials' => $materials->items(),
+            'meta' => [
+                'current_page' => $materials->currentPage(),
+                'last_page'    => $materials->lastPage(),
+                'per_page'     => $materials->perPage(),
+                'total'        => $materials->total(),
+            ],
         ]);
     }
 
@@ -39,8 +47,9 @@ class PostController extends Controller
      */
     public function assignments(Request $request)
     {
-        $student = $request->user('student');
+        $student = $request->user();
         $studentId = $student->id;
+        $perPage = max(1, min((int) $request->query('per_page', 15), 100));
 
         $assignments = DB::table('posts')
             ->leftJoin('mapels', 'posts.mapel_id', '=', 'mapels.id')
@@ -59,21 +68,28 @@ class PostController extends Controller
                 'tasks.point',
                 DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted')
             )
-            ->get()
-            ->map(function ($ass) {
-                if ($ass->is_submitted) {
-                    $ass->status = ($ass->point !== null)
-                        ? 'Sudah Dinilai'
-                        : 'Belum Dinilai';
-                } else {
-                    $ass->status = 'Belum Mengerjakan';
-                }
-                return $ass;
-            });
+            ->paginate($perPage);
+
+        $items = collect($assignments->items())->map(function ($ass) {
+            if ($ass->is_submitted) {
+                $ass->status = ($ass->point !== null)
+                    ? 'Sudah Dinilai'
+                    : 'Belum Dinilai';
+            } else {
+                $ass->status = 'Belum Mengerjakan';
+            }
+            return $ass;
+        });
 
         return response()->json([
             'success' => true,
-            'assignments' => $assignments
+            'assignments' => $items,
+            'meta' => [
+                'current_page' => $assignments->currentPage(),
+                'last_page'    => $assignments->lastPage(),
+                'per_page'     => $assignments->perPage(),
+                'total'        => $assignments->total(),
+            ],
         ]);
     }
 

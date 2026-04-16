@@ -100,11 +100,11 @@ class ReportController extends Controller
             ]);
 
         } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('ReportController@store: ' . $e->getMessage());
 
-            // Debug server error
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage()
+                'message' => 'Gagal menyimpan laporan, coba lagi'
             ], 500);
         }
     }

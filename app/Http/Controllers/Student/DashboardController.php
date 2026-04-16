@@ -25,6 +25,9 @@ class DashboardController extends Controller
         $totalTasks = Post::where('is_task', 1)
             ->where('serial_id', $student->serial_id)
             ->count();
+        $totalMaterials = Post::where('is_task', 0)
+            ->where('serial_id', $student->serial_id)
+            ->count();
         $totalExercises = ExercisePoint::where('student_id', $student->id)->count();
         $avgTask = Task::where('student_id', $student->id)->avg('point') ?? 0;
         $avgExercise = ExercisePoint::where('student_id', $student->id)->avg('exercise_point') ?? 0;
@@ -102,11 +105,12 @@ class DashboardController extends Controller
                     'className' => optional($student->classroom)->name,
                 ],
                 'stats' => [
-                    'total_tasks' => $totalTasks,
-                    'total_exercises' => $totalExercises,
-                    'average_task_score' => round($avgTask, 2),
+                    'total_tasks'            => $totalTasks,
+                    'total_materials'        => $totalMaterials,
+                    'total_exercises'        => $totalExercises,
+                    'average_task_score'     => round($avgTask, 2),
                     'average_exercise_score' => round($avgExercise, 2),
-                    'report_count' => $reportCount,
+                    'report_count'           => $reportCount,
                 ],
                 'meetings_today' => $meetingsToday,
                 // ⬇️ kirim tugas yang belum selesai

@@ -6,6 +6,7 @@ use App\Http\Controllers\Teacher\OnlineMeetingController;
 use App\Http\Controllers\Student\PostController;
 use App\Http\Controllers\Teacher\PostCommentController as TeacherPostCommentController;
 use App\Http\Controllers\Teacher\PostChildCommentController as TeacherPostChildCommentController;
+use App\Http\Controllers\Teacher\QuizLogController;
 
 /*
 |--------------------------------------------------------------------------
@@ -69,6 +70,13 @@ Route::prefix('teacher')
 
         Route::post('/posts', [PostController::class, 'store'])
             ->name('posts.store');
+
+        // ================= QUIZ LOG MONITORING =================
+        Route::get('/quiz-logs', [QuizLogController::class, 'index'])
+            ->name('quiz-logs.index');
+
+        Route::get('/quiz-logs/{exerciseId}', [QuizLogController::class, 'show'])
+            ->name('quiz-logs.show');
     });
 
 /*
