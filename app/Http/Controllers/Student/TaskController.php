@@ -45,9 +45,9 @@ class TaskController extends Controller
         $student = $request->user();
 
         $validated = $request->validate([
-            'post_id' => 'required|integer|exists:posts,id',
+            'post_id'     => 'required|integer|exists:posts,id',
             'description' => 'nullable|string',
-            'attachment' => 'nullable|file|max:20480', // 20MB
+            'attachment'  => 'nullable|file|mimes:pdf,doc,docx,zip,jpg,jpeg,png,mp4,mov,avi,mkv|max:10240', // 10MB
         ]);
 
         // Cek apakah sudah pernah submit
