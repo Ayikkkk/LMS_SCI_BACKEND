@@ -60,14 +60,18 @@ class PostController extends Controller
             ->where('posts.serial_id', $student->serial_id)
             ->where('posts.is_task', 1)
             ->orderBy('posts.id', 'desc')
-            ->select(
-                'posts.*',
+            ->select([
+                'posts.id', 'posts.serial_id', 'posts.user_id', 'posts.mapel_id',
+                'posts.title', 'posts.description', 'posts.slug',
+                'posts.link', 'posts.attachment', 'posts.embed',
+                'posts.due_date', 'posts.category', 'posts.is_task',
+                'posts.created_at', 'posts.updated_at',
                 'mapels.name as subject_name',
                 'tasks.id as task_id',
                 'tasks.attachment as student_attachment',
                 'tasks.point',
-                DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted')
-            )
+                DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted'),
+            ])
             ->paginate($perPage);
 
         $items = collect($assignments->items())->map(function ($ass) {
@@ -108,14 +112,18 @@ class PostController extends Controller
                     ->where('tasks.student_id', '=', $studentId);
             })
             ->where('posts.id', $id)
-            ->select(
-                'posts.*',
+            ->select([
+                'posts.id', 'posts.serial_id', 'posts.user_id', 'posts.mapel_id',
+                'posts.title', 'posts.description', 'posts.slug',
+                'posts.link', 'posts.attachment', 'posts.embed',
+                'posts.due_date', 'posts.category', 'posts.is_task',
+                'posts.created_at', 'posts.updated_at',
                 'mapels.name as subject_name',
                 'tasks.id as task_id',
                 'tasks.attachment as student_attachment',
                 'tasks.point',
-                DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted')
-            )
+                DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted'),
+            ])
             ->first();
 
         if (!$post) {

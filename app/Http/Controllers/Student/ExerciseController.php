@@ -80,7 +80,34 @@ class ExerciseController extends Controller
 
         $exercises = $query->orderBy('id', 'desc')->get();
 
-        return response()->json(['success' => true, 'data' => $exercises]);
+        // Ambil semua hasil kuis siswa untuk exercise di lesson ini sekaligus
+        $exerciseIds = $exercises->pluck('id');
+        $points = ExercisePoint::where('student_id', $student->id)
+            ->whereIn('exercise_id', $exerciseIds)
+            ->get()
+            ->keyBy('exercise_id');
+
+        $data = $exercises->map(function ($ex) use ($points) {
+            $point = $points->get($ex->id);
+            return [
+                'id'            => $ex->id,
+                'lesson_id'     => $ex->lesson_id,
+                'serial_id'     => $ex->serial_id,
+                'exercise_type_id' => $ex->exercise_type_id,
+                'title'         => $ex->title,
+                'is_admin'      => $ex->is_admin,
+                'created_at'    => $ex->created_at,
+                'updated_at'    => $ex->updated_at,
+                'deleted_at'    => $ex->deleted_at,
+                'exercise_type' => $ex->exerciseType,
+                // Status pengerjaan
+                'is_done'       => $point !== null,
+                'score'         => $point ? $point->exercise_point : null,
+                'is_pending_review' => $point && $point->exercise_point === null,
+            ];
+        });
+
+        return response()->json(['success' => true, 'data' => $data]);
     }
 
     // ✅ Detail quiz & soal

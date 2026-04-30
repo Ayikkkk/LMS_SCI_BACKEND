@@ -78,15 +78,24 @@ class DashboardController extends Controller
                 $join->on('posts.id', '=', 'tasks.post_id')
                     ->where('tasks.student_id', $student->id);
             })
+            ->leftJoin('mapels', 'posts.mapel_id', '=', 'mapels.id')
             ->where('posts.is_task', 1)
             ->where('posts.serial_id', $student->serial_id)
             ->whereNull('tasks.id')
-            ->whereDate('posts.due_date', '>=', now())
+            // Tampilkan semua tugas belum dikerjakan:
+            // - yang punya due_date dan belum lewat, ATAU
+            // - yang tidak punya due_date sama sekali
+            ->where(function ($q) {
+                $q->whereNull('posts.due_date')
+                  ->orWhereDate('posts.due_date', '>=', now());
+            })
             ->select(
                 'posts.id',
                 'posts.title',
-                'posts.due_date'
+                'posts.due_date',
+                'mapels.name as subject_name'
             )
+            ->orderByRaw('CASE WHEN posts.due_date IS NULL THEN 1 ELSE 0 END')
             ->orderBy('posts.due_date', 'asc')
             ->get();
 
