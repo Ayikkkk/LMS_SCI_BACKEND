@@ -10,7 +10,7 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
-        'materi_id',
+        'lesson_id', // varchar — stores JSON array of lesson IDs e.g. "[1,2,3]"
         'name',
         'grade',
         'grade_category',

@@ -472,6 +472,25 @@ class ExerciseController extends Controller
         ]);
 
         try {
+            // Cegah double log SUBMIT/AUTO_SUBMIT dalam window 10 detik
+            $isSubmitEvent = in_array($validated['event_type'], ['SUBMIT', 'AUTO_SUBMIT']);
+            if ($isSubmitEvent) {
+                $recentSubmit = DB::connection('mysql_log')
+                    ->table('quiz_activity_logs')
+                    ->where('student_id', $student->id)
+                    ->where('exercise_id', $validated['exercise_id'])
+                    ->whereIn('event_type', ['SUBMIT', 'AUTO_SUBMIT'])
+                    ->where('created_at', '>=', now()->subSeconds(10))
+                    ->exists();
+
+                if ($recentSubmit) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Duplicate submit log ignored'
+                    ]);
+                }
+            }
+
             DB::connection('mysql_log')->table('quiz_activity_logs')->insert([
                 'student_id'      => $student->id,
                 'exercise_id'     => $validated['exercise_id'],

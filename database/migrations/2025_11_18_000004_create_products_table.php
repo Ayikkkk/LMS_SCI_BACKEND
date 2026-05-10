@@ -10,13 +10,12 @@ return new class extends Migration
     {
         Schema::create('products', function (Blueprint $table) {
             $table->increments('id');
-            $table->unsignedInteger('lesson_id');
+            $table->string('lesson_id', 100)->nullable(); // JSON array of lesson IDs
             $table->string('name', 50);
             $table->string('grade', 50)->nullable();
             $table->string('grade_category', 100);
             $table->string('semester', 50)->nullable();
             $table->timestamps();
-            $table->foreign('lesson_id')->references('id')->on('lessons')->cascadeOnDelete();
         });
     }
 

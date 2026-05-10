@@ -52,7 +52,12 @@ class AuthController extends Controller
             ], 401);
         }
 
-        $token = $student->createToken('student_token')->plainTextToken;
+        $expiresAt = now()->addDays(7);
+        $token = $student->createToken(
+            'student_token',
+            ['*'],
+            $expiresAt
+        )->plainTextToken;
 
         return response()->json([
             'success' => true,

@@ -58,7 +58,16 @@ class LmsSeeder extends Seeder
         // PRODUCTS
         // =====================
         DB::table('products')->insert([
-            ['id' => 1, 'lesson_id' => 1, 'name' => 'Paket SD Kelas V', 'grade' => 'V', 'grade_category' => 'SD', 'semester' => '1', 'created_at' => '2025-11-18 08:26:56', 'updated_at' => '2025-11-18 08:26:56'],
+            [
+                'id'             => 1,
+                'lesson_id'      => json_encode(['1', '2']),
+                'name'           => 'Paket SD Kelas V',
+                'grade'          => 'V',
+                'grade_category' => json_encode(['V']),
+                'semester'       => '1',
+                'created_at'     => '2025-11-18 08:26:56',
+                'updated_at'     => '2025-11-18 08:26:56',
+            ],
         ]);
 
         // =====================
