@@ -16,7 +16,6 @@ return new class extends Migration
             $table->string('name', 200);
             $table->string('username', 100)->unique();
             $table->string('password', 150);
-            $table->string('password_text', 100); // legacy — do not use for new records
             $table->string('nis', 20)->nullable();
             $table->integer('absen_number')->nullable();
             $table->string('email', 100)->nullable();

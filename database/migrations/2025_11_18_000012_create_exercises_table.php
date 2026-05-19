@@ -14,6 +14,7 @@ return new class extends Migration
             $table->unsignedInteger('serial_id')->nullable();
             $table->unsignedInteger('exercise_type_id');
             $table->string('title', 200)->nullable();
+            $table->unsignedSmallInteger('time_limit')->nullable(); // waktu pengerjaan dalam menit, null = tidak ada batas
             $table->boolean('is_admin')->default(1);
             $table->timestamps();
             $table->softDeletes();

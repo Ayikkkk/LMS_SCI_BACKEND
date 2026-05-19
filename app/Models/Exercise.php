@@ -15,6 +15,7 @@ class Exercise extends Model
         'serial_id',
         'exercise_type_id',
         'title',
+        'time_limit', // waktu pengerjaan dalam menit, null = tidak ada batas
         'is_admin',
     ];
 
