@@ -104,18 +104,22 @@ class Student extends Authenticatable
         }
     }
 
-    // Accessor — returns /storage/... relative path, never a full URL.
-    // Use request()->getSchemeAndHttpHost() + this value to build full URL in controllers.
+    // Accessor — returns full HTTPS URL.
+    // Forces https:// to ensure compatibility with Railway and other HTTPS-only hosts.
     public function getPhotoUrlAttribute(): ?string
     {
         if (empty($this->photo)) return null;
 
+        // Sudah full URL — pastikan pakai https://
         if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://')) {
-            // Legacy full URL — return only the /storage/... path
-            return parse_url($this->photo, PHP_URL_PATH);
+            return str_replace('http://', 'https://', $this->photo);
         }
 
-        return '/storage/' . $this->photo;
+        // Path relatif — gabungkan dengan APP_URL (pastikan https)
+        $baseUrl = rtrim((string) config('app.url'), '/');
+        $baseUrl = str_replace('http://', 'https://', $baseUrl);
+
+        return $baseUrl . '/storage/' . $this->photo;
     }
 
     /**

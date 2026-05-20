@@ -13,22 +13,35 @@ use Illuminate\Support\Str;
 class AuthController extends Controller
 {
     /**
-     * Generate full photo URL using the current request host.
-     * Does NOT use Storage::url() — it reads APP_URL from config which may be stale.
-     * Builds URL directly: requestHost + /storage/ + relativePath
+     * Generate full photo URL, selalu pakai https://.
+     * Railway dan hosting modern menggunakan reverse proxy — request internal
+     * bisa masuk sebagai http:// meskipun user akses via https://.
+     * Solusi: paksa https:// dari APP_URL, bukan dari request host.
      */
     private function photoUrl(?string $path, Request $request): ?string
     {
         if (!$path) return null;
 
-        // Legacy data: path is already a full URL with old IP → extract only the /storage/... part
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-            $storagePath = parse_url($path, PHP_URL_PATH); // e.g. /storage/students/xxx.jpg
-            return $request->getSchemeAndHttpHost() . $storagePath;
+        // Ambil base URL dari APP_URL (sudah di-set ke https di Railway)
+        // Fallback ke request host jika APP_URL belum di-set
+        $appUrl = (string) rtrim((string) config('app.url', ''), '/');
+
+        // Jika APP_URL masih default atau localhost, gunakan request host
+        if (empty($appUrl) || str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
+            $appUrl = $request->getSchemeAndHttpHost();
         }
 
-        // Normal case: relative path like "students/xxx.jpg"
-        return $request->getSchemeAndHttpHost() . '/storage/' . $path;
+        // Paksa https:// — Railway selalu HTTPS dari sisi user
+        $appUrl = str_replace('http://', 'https://', (string) $appUrl);
+
+        // Legacy data: path sudah berupa full URL → ambil path-nya saja
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $storagePath = parse_url($path, PHP_URL_PATH); // e.g. /storage/students/xxx.jpg
+            return $appUrl . $storagePath;
+        }
+
+        // Normal case: relative path seperti "students/xxx.jpg"
+        return $appUrl . '/storage/' . $path;
     }
 
     /**

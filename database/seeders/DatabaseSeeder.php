@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             LmsSeeder::class,
             ExerciseItemSeeder::class,
+            QuizSeeder::class,
         ]);
     }
 }

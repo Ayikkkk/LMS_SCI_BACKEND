@@ -81,6 +81,83 @@ Route::prefix('teacher')
 
 /*
 |--------------------------------------------------------------------------
+| Maintenance Routes (sementara — hapus setelah selesai dipakai)
+|--------------------------------------------------------------------------
+*/
+
+// Bersihkan kolom photo siswa yang filenya tidak ada di server
+// Akses: https://lmsscibackend-production.up.railway.app/maintenance/clear-missing-photos
+Route::get('/maintenance/clear-missing-photos', function () {
+    // Proteksi sederhana dengan secret key
+    $secret = request()->query('key');
+    if ($secret !== env('MAINTENANCE_KEY', 'lms-maintenance-2026')) {
+        abort(403, 'Forbidden');
+    }
+
+    $students = \DB::table('students')->whereNotNull('photo')->get(['id', 'photo']);
+    $cleared = 0;
+
+    foreach ($students as $student) {
+        $path = $student->photo;
+
+        // Jika sudah full URL, ambil path relatifnya
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            // Ambil bagian setelah /storage/
+            $parsed = parse_url($path, PHP_URL_PATH);
+            $path = ltrim(str_replace('/storage/', '', $parsed), '/');
+        }
+
+        // Cek apakah file fisik ada di storage
+        if (!\Storage::disk('public')->exists($path)) {
+            \DB::table('students')->where('id', $student->id)->update(['photo' => null]);
+            $cleared++;
+        }
+    }
+
+    return response()->json([
+        'success' => true,
+        'message' => "Selesai. $cleared foto dihapus dari database (file tidak ditemukan di server).",
+        'total_checked' => $students->count(),
+        'total_cleared' => $cleared,
+    ]);
+});
+
+// Cek status storage
+// Akses: https://lmsscibackend-production.up.railway.app/maintenance/storage-status
+Route::get('/maintenance/storage-status', function () {
+    $secret = request()->query('key');
+    if ($secret !== env('MAINTENANCE_KEY', 'lms-maintenance-2026')) {
+        abort(403, 'Forbidden');
+    }
+
+    $linkExists = file_exists(public_path('storage'));
+    $storageWritable = is_writable(storage_path('app/public'));
+    $students = \DB::table('students')->whereNotNull('photo')->get(['id', 'photo']);
+
+    $fileStatus = $students->map(function ($s) {
+        $path = $s->photo;
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $parsed = parse_url($path, PHP_URL_PATH);
+            $path = ltrim(str_replace('/storage/', '', $parsed), '/');
+        }
+        return [
+            'id' => $s->id,
+            'photo_db' => $s->photo,
+            'path_checked' => $path,
+            'file_exists' => \Storage::disk('public')->exists($path),
+        ];
+    });
+
+    return response()->json([
+        'storage_link_exists' => $linkExists,
+        'storage_writable' => $storageWritable,
+        'students_with_photo' => $students->count(),
+        'files' => $fileStatus,
+    ]);
+});
+
+/*
+|--------------------------------------------------------------------------
 | Debug Route (sementara)
 |--------------------------------------------------------------------------
 */
