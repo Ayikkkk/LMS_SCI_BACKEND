@@ -133,7 +133,12 @@ class AuthController extends Controller
         $student = $request->user();
 
         $validated = $request->validate([
-            'name'  => 'sometimes|nullable|string|max:255',
+            'name'     => 'sometimes|nullable|string|max:255',
+            'username' => [
+                'sometimes', 'nullable', 'string', 'max:100',
+                'regex:/^[a-zA-Z0-9_\-]+$/', // huruf, angka, dash, underscore
+                Rule::unique('students', 'username')->ignore($student->id),
+            ],
             'email' => [
                 'sometimes', 'nullable', 'email', 'max:255',
                 Rule::unique('students', 'email')->ignore($student->id),
@@ -169,10 +174,11 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Profil berhasil diperbarui',
             'data'    => [
-                'name'  => $student->name,
-                'email' => $student->email,
-                'phone' => $student->phone,
-                'photo' => $this->photoUrl($student->photo, $request),
+                'name'     => $student->name,
+                'username' => $student->username,
+                'email'    => $student->email,
+                'phone'    => $student->phone,
+                'photo'    => $this->photoUrl($student->photo, $request),
             ],
         ]);
     }
