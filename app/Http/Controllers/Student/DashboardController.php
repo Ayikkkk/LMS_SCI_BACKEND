@@ -107,11 +107,16 @@ class DashboardController extends Controller
             'success' => true,
             'data' => [
                 'student' => [
-                    'id' => $student->id,
-                    'name' => $student->name,
-                    'username' => $student->username,
-                    'email' => $student->email,
+                    'id'        => $student->id,
+                    'name'      => $student->name,
+                    'username'  => $student->username,
+                    'email'     => $student->email,
                     'className' => optional($student->classroom)->name,
+                    'photo'     => $student->photo_url
+                        ? (str_starts_with($student->photo_url, 'http')
+                            ? str_replace('http://', 'https://', $student->photo_url)
+                            : rtrim(str_replace('http://', 'https://', config('app.url')), '/') . $student->photo_url)
+                        : null,
                 ],
                 'stats' => [
                     'total_tasks'            => $totalTasks,
