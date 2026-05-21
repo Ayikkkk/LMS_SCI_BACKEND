@@ -42,6 +42,7 @@ Route::prefix('student')->group(function () {
          */
         Route::get('/profile', [AuthController::class, 'profile']);
         Route::put('/profile', [AuthController::class, 'updateProfile']);
+        Route::post('/profile/update', [AuthController::class, 'updateProfile']); // multipart upload
         Route::delete('/photo', [AuthController::class, 'deletePhoto']);
         Route::post('/change-password', [AuthController::class, 'changePassword']);
         Route::post('/logout', [AuthController::class, 'logout']);
