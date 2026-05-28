@@ -84,6 +84,8 @@ Route::prefix('student')->group(function () {
          */
         Route::get('/my-tasks', [TaskController::class, 'index']);
         Route::post('/submit-task', [TaskController::class, 'store']);
+        Route::post('/submit-task/{postId}/update', [TaskController::class, 'update']);
+        Route::get('/tasks/{postId}/download', [TaskController::class, 'download']);
 
         /**
          * --------------------------
