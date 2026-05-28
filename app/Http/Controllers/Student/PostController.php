@@ -68,8 +68,11 @@ class PostController extends Controller
                 'posts.created_at', 'posts.updated_at',
                 'mapels.name as subject_name',
                 'tasks.id as task_id',
+                'tasks.description as student_description',
                 'tasks.attachment as student_attachment',
                 'tasks.point',
+                'tasks.created_at as submitted_at',
+                'tasks.updated_at as submission_updated_at',
                 DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted'),
             ])
             ->paginate($perPage);
@@ -102,7 +105,7 @@ class PostController extends Controller
      */
     public function show(Request $request, $id)
     {
-        $student = $request->user('student');
+        $student = $request->user();
         $studentId = $student->id;
 
         $post = DB::table('posts')
@@ -120,8 +123,11 @@ class PostController extends Controller
                 'posts.created_at', 'posts.updated_at',
                 'mapels.name as subject_name',
                 'tasks.id as task_id',
+                'tasks.description as student_description',
                 'tasks.attachment as student_attachment',
                 'tasks.point',
+                'tasks.created_at as submitted_at',
+                'tasks.updated_at as submission_updated_at',
                 DB::raw('CASE WHEN tasks.id IS NOT NULL THEN TRUE ELSE FALSE END as is_submitted'),
             ])
             ->first();
