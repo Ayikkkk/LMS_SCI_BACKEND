@@ -38,12 +38,21 @@ class PostChildComment extends Model
 
     public function getAuthorPhotoAttribute()
     {
+        $baseUrl = rtrim((string) config('app.url'), '/');
+
         if ($this->is_user && $this->user && $this->user->img) {
-            return asset('storage/users/' . $this->user->img);
+            return $baseUrl . '/api/files/users/' . $this->user->img;
         }
 
         if (!$this->is_user && $this->student && $this->student->photo) {
-            return asset('storage/students/' . $this->student->photo);
+            $photo = $this->student->photo;
+            // Jika sudah full URL, ekstrak relative path-nya
+            if (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
+                $parsed = parse_url($photo, PHP_URL_PATH);
+                $relativePath = ltrim(str_replace('/storage/', '', $parsed), '/');
+                return $baseUrl . '/api/files/' . $relativePath;
+            }
+            return $baseUrl . '/api/files/' . $photo;
         }
 
         return null;
