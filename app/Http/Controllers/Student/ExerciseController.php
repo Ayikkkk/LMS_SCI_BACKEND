@@ -469,6 +469,7 @@ class ExerciseController extends Controller
             'duration_seconds' => 'nullable|integer',
             'suspicious_flag' => 'nullable|boolean',
             'timestamp' => 'required|date',
+            'device_info' => 'nullable|string|max:255',
         ]);
 
         try {
@@ -497,6 +498,7 @@ class ExerciseController extends Controller
                 'event_type'      => $validated['event_type'],
                 'duration_seconds'=> $validated['duration_seconds'] ?? null,
                 'suspicious_flag' => $validated['suspicious_flag'] ?? false,
+                'device_info'     => $validated['device_info'] ?? null,
                 'ip_address'      => $request->ip(),
                 'created_at'      => now(),
             ]);

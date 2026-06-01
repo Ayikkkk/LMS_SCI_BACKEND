@@ -89,6 +89,9 @@ class QuizLogController extends Controller
             $backBlocked     = $logs->where('event_type', 'BACK_BUTTON_BLOCKED')->count();
             $isAutoSubmit    = $logs->contains('event_type', 'AUTO_SUBMIT');
 
+            // Ambil device_info dari log START atau log pertama yang punya nilai
+            $deviceInfo = $logs->first(fn($l) => !empty($l->device_info))?->device_info;
+
             return [
                 'student'         => $student,
                 'logs'            => $logs,
@@ -97,6 +100,7 @@ class QuizLogController extends Controller
                 'suspicious'      => $suspiciousCount,
                 'back_blocked'    => $backBlocked,
                 'is_auto_submit'  => $isAutoSubmit,
+                'device_info'     => $deviceInfo,
                 'risk_level'      => $this->riskLevel($suspiciousCount, $bgCount, $backBlocked),
             ];
         })->sortByDesc(fn($d) => $d['suspicious']);

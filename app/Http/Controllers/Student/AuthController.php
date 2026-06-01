@@ -22,17 +22,13 @@ class AuthController extends Controller
     {
         if (!$path) return null;
 
-        // Ambil base URL dari APP_URL (sudah di-set ke https di Railway)
-        // Fallback ke request host jika APP_URL belum di-set
+        // Ambil base URL dari APP_URL
+        // Fallback ke request host jika APP_URL belum di-set atau masih default
         $appUrl = (string) rtrim((string) config('app.url', ''), '/');
 
-        // Jika APP_URL masih default atau localhost, gunakan request host
         if (empty($appUrl) || str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
             $appUrl = $request->getSchemeAndHttpHost();
         }
-
-        // Paksa https:// — Railway selalu HTTPS dari sisi user
-        $appUrl = str_replace('http://', 'https://', (string) $appUrl);
 
         // Legacy data: path sudah berupa full URL → ambil path-nya saja
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {

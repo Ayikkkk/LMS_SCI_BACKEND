@@ -86,6 +86,11 @@
                 <div>
                     <h6 class="mb-0 fw-bold">{{ $item['student']->name }}</h6>
                     <small class="text-muted">NIS: {{ $item['student']->nis ?? '-' }}</small>
+                    @if ($item['device_info'])
+                        <div class="text-muted mt-1" style="font-size:11px">
+                            📱 {{ $item['device_info'] }}
+                        </div>
+                    @endif
                 </div>
                 <span class="badge {{ $badgeClass }}">{{ $riskLabel }}</span>
             </div>
