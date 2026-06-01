@@ -105,21 +105,22 @@ class Student extends Authenticatable
     }
 
     // Accessor — returns full HTTPS URL.
-    // Forces https:// to ensure compatibility with Railway and other HTTPS-only hosts.
+    // Builds photo URL using APP_URL — works for both Railway (https) and VPS (http)
     public function getPhotoUrlAttribute(): ?string
     {
         if (empty($this->photo)) return null;
 
-        // Sudah full URL — pastikan pakai https://
+        $baseUrl = rtrim((string) config('app.url'), '/');
+
+        // Path sudah berupa full URL — ekstrak relative path-nya
         if (str_starts_with($this->photo, 'http://') || str_starts_with($this->photo, 'https://')) {
-            return str_replace('http://', 'https://', $this->photo);
+            $parsed = parse_url($this->photo, PHP_URL_PATH);
+            $relativePath = ltrim(str_replace('/storage/', '', $parsed), '/');
+            return $baseUrl . '/api/files/' . $relativePath;
         }
 
-        // Path relatif — gabungkan dengan APP_URL (pastikan https)
-        $baseUrl = rtrim((string) config('app.url'), '/');
-        $baseUrl = str_replace('http://', 'https://', $baseUrl);
-
-        return $baseUrl . '/storage/' . $this->photo;
+        // Path relatif seperti "students/xxx.jpg"
+        return $baseUrl . '/api/files/' . $this->photo;
     }
 
     /**

@@ -14,6 +14,29 @@ use App\Models\Post;
 
 class DashboardController extends Controller
 {
+    /**
+     * Build photo URL dari APP_URL — konsisten dengan AuthController::photoUrl()
+     */
+    private function buildPhotoUrl(?string $path, Request $request): ?string
+    {
+        if (!$path) return null;
+
+        $appUrl = rtrim((string) config('app.url', ''), '/');
+
+        if (empty($appUrl) || str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
+            $appUrl = $request->getSchemeAndHttpHost();
+        }
+
+        // Legacy: path sudah berupa full URL
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            $parsed = parse_url($path, PHP_URL_PATH);
+            $relativePath = ltrim(str_replace('/storage/', '', $parsed), '/');
+            return $appUrl . '/api/files/' . $relativePath;
+        }
+
+        return $appUrl . '/api/files/' . $path;
+    }
+
     public function index(Request $request)
     {
         $student = $request->user();
@@ -112,11 +135,7 @@ class DashboardController extends Controller
                     'username'  => $student->username,
                     'email'     => $student->email,
                     'className' => optional($student->classroom)->name,
-                    'photo'     => $student->photo_url
-                        ? (str_starts_with($student->photo_url, 'http')
-                            ? str_replace('http://', 'https://', $student->photo_url)
-                            : rtrim(str_replace('http://', 'https://', config('app.url')), '/') . $student->photo_url)
-                        : null,
+                    'photo'     => $this->buildPhotoUrl($student->photo, $request),
                 ],
                 'stats' => [
                     'total_tasks'            => $totalTasks,
