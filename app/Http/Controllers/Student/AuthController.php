@@ -22,22 +22,22 @@ class AuthController extends Controller
     {
         if (!$path) return null;
 
-        // Ambil base URL dari APP_URL
-        // Fallback ke request host jika APP_URL belum di-set atau masih default
         $appUrl = (string) rtrim((string) config('app.url', ''), '/');
 
         if (empty($appUrl) || str_contains($appUrl, 'localhost') || str_contains($appUrl, '127.0.0.1')) {
             $appUrl = $request->getSchemeAndHttpHost();
         }
 
-        // Legacy data: path sudah berupa full URL → ambil path-nya saja
+        // Ekstrak relative path dari URL lama (legacy data)
         if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-            $storagePath = parse_url($path, PHP_URL_PATH); // e.g. /storage/students/xxx.jpg
-            return $appUrl . $storagePath;
+            // Ambil hanya bagian setelah /storage/
+            $parsed = parse_url($path, PHP_URL_PATH); // e.g. /storage/students/xxx.jpg
+            $relativePath = ltrim(str_replace('/storage/', '', $parsed), '/');
+            return $appUrl . '/api/files/' . $relativePath;
         }
 
         // Normal case: relative path seperti "students/xxx.jpg"
-        return $appUrl . '/storage/' . $path;
+        return $appUrl . '/api/files/' . $path;
     }
 
     /**
