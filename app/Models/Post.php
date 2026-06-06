@@ -11,6 +11,7 @@ class Post extends Model
     // Tambahkan 'due_date' ke fillable
     protected $fillable = [
         'serial_id',
+        'classroom_id',
         'user_id',
         'mapel_id',
         'title',
@@ -20,7 +21,14 @@ class Post extends Model
         'is_task',
         'due_date',
         'attachment',
+        'embed',
+        'category',
     ];
+
+    public function classroom()
+    {
+        return $this->belongsTo(Classroom::class, 'classroom_id');
+    }
 
     /**
      * Relasi ke Guru (Teacher/User).

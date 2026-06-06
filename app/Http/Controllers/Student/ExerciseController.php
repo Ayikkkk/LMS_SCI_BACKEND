@@ -30,10 +30,38 @@ class ExerciseController extends Controller
     {
         $student = $request->user();
 
+        // Exercise tersedia untuk siswa jika:
+        // 1. exercises.serial_id = serial siswa (cara lama), ATAU
+        // 2. Ada record di share_exercises dengan serial_id = serial siswa
+        //    DAN (classroom_id NULL atau = classroom siswa)
         $lessons = Lesson::whereHas('exercises', function ($q) use ($student) {
-            $q->where('serial_id', $student->serial_id);
+            $q->where(function ($inner) use ($student) {
+                // Cara lama: serial_id langsung
+                $inner->where('exercises.serial_id', $student->serial_id)
+                    // Cara baru: via share_exercises
+                    ->orWhereExists(function ($sub) use ($student) {
+                        $sub->from('share_exercises')
+                            ->whereColumn('share_exercises.exercise_id', 'exercises.id')
+                            ->where('share_exercises.serial_id', $student->serial_id)
+                            ->where(function ($c) use ($student) {
+                                $c->whereNull('share_exercises.classroom_id')
+                                  ->orWhere('share_exercises.classroom_id', $student->classroom_id);
+                            });
+                    });
+            });
         })->with(['exercises' => function ($q) use ($student) {
-            $q->where('serial_id', $student->serial_id)->with('exerciseType');
+            $q->where(function ($inner) use ($student) {
+                $inner->where('exercises.serial_id', $student->serial_id)
+                    ->orWhereExists(function ($sub) use ($student) {
+                        $sub->from('share_exercises')
+                            ->whereColumn('share_exercises.exercise_id', 'exercises.id')
+                            ->where('share_exercises.serial_id', $student->serial_id)
+                            ->where(function ($c) use ($student) {
+                                $c->whereNull('share_exercises.classroom_id')
+                                  ->orWhere('share_exercises.classroom_id', $student->classroom_id);
+                            });
+                    });
+            })->with('exerciseType');
         }])->orderBy('name')->get();
 
         // Ambil semua exercise yang sudah dikerjakan siswa sekaligus (1 query)
@@ -41,7 +69,7 @@ class ExerciseController extends Controller
         $doneIds = ExercisePoint::where('student_id', $student->id)
             ->whereIn('exercise_id', $allExerciseIds)
             ->pluck('exercise_id')
-            ->flip(); // flip agar bisa cek dengan isset()
+            ->flip();
 
         $data = $lessons->map(function ($lesson) use ($doneIds) {
             $types = $lesson->exercises->groupBy(function ($ex) {
@@ -83,7 +111,20 @@ class ExerciseController extends Controller
 
         $query = Exercise::with('exerciseType')
             ->where('lesson_id', $lessonId)
-            ->where('serial_id', $student->serial_id);
+            ->where(function ($q) use ($student) {
+                // Cara lama: serial_id langsung
+                $q->where('exercises.serial_id', $student->serial_id)
+                  // Cara baru: via share_exercises
+                  ->orWhereExists(function ($sub) use ($student) {
+                      $sub->from('share_exercises')
+                          ->whereColumn('share_exercises.exercise_id', 'exercises.id')
+                          ->where('share_exercises.serial_id', $student->serial_id)
+                          ->where(function ($c) use ($student) {
+                              $c->whereNull('share_exercises.classroom_id')
+                                ->orWhere('share_exercises.classroom_id', $student->classroom_id);
+                          });
+                  });
+            });
 
         if ($typeId) {
             $query->where('exercise_type_id', $typeId);
@@ -122,8 +163,9 @@ class ExerciseController extends Controller
     }
 
     //  Detail quiz & soal
-    public function show($id)
+    public function show(Request $request, $id)
     {
+        $student = $request->user();
         $exercise = Exercise::with(['items', 'exerciseType'])->find($id);
 
         if (!$exercise) {
@@ -131,6 +173,22 @@ class ExerciseController extends Controller
                 'success' => false,
                 'message' => 'Latihan tidak ditemukan'
             ], 404);
+        }
+
+        // Validasi akses: serial_id langsung ATAU via share_exercises
+        $hasAccess = ($exercise->serial_id !== null && $exercise->serial_id === $student->serial_id)
+            || \App\Models\ShareExercise::where('exercise_id', $id)
+                ->where('serial_id', $student->serial_id)
+                ->where(function ($q) use ($student) {
+                    $q->whereNull('classroom_id')
+                      ->orWhere('classroom_id', $student->classroom_id);
+                })->exists();
+
+        if (!$hasAccess) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Akses latihan tidak diizinkan'
+            ], 403);
         }
 
         /** @var Exercise $exercise */

@@ -12,6 +12,7 @@ class PostController extends Controller
 {
     /**
      * 📘 Ambil daftar materi siswa
+     * Filter: serial_id cocok DAN (classroom_id NULL atau classroom_id = classroom siswa)
      */
     public function materials(Request $request)
     {
@@ -21,6 +22,10 @@ class PostController extends Controller
         $materials = Post::with('mapel')
             ->where('serial_id', $student->serial_id)
             ->where('is_task', 0)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
             ->orderBy('id', 'desc')
             ->paginate($perPage);
 
@@ -44,6 +49,7 @@ class PostController extends Controller
 
     /**
      * 📄 Ambil daftar tugas siswa
+     * Filter: serial_id cocok DAN (classroom_id NULL atau classroom_id = classroom siswa)
      */
     public function assignments(Request $request)
     {
@@ -59,9 +65,13 @@ class PostController extends Controller
             })
             ->where('posts.serial_id', $student->serial_id)
             ->where('posts.is_task', 1)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('posts.classroom_id')
+                  ->orWhere('posts.classroom_id', $student->classroom_id);
+            })
             ->orderBy('posts.id', 'desc')
             ->select([
-                'posts.id', 'posts.serial_id', 'posts.user_id', 'posts.mapel_id',
+                'posts.id', 'posts.serial_id', 'posts.classroom_id', 'posts.user_id', 'posts.mapel_id',
                 'posts.title', 'posts.description', 'posts.slug',
                 'posts.link', 'posts.attachment', 'posts.embed',
                 'posts.due_date', 'posts.category', 'posts.is_task',
@@ -115,6 +125,11 @@ class PostController extends Controller
                     ->where('tasks.student_id', '=', $studentId);
             })
             ->where('posts.id', $id)
+            ->where('posts.serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('posts.classroom_id')
+                  ->orWhere('posts.classroom_id', $student->classroom_id);
+            })
             ->select([
                 'posts.id', 'posts.serial_id', 'posts.user_id', 'posts.mapel_id',
                 'posts.title', 'posts.description', 'posts.slug',

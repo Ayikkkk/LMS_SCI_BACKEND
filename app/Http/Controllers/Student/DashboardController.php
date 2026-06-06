@@ -47,9 +47,18 @@ class DashboardController extends Controller
 
         $totalTasks = Post::where('is_task', 1)
             ->where('serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
             ->count();
+
         $totalMaterials = Post::where('is_task', 0)
             ->where('serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
             ->count();
         $totalExercises = ExercisePoint::where('student_id', $student->id)->count();
         $avgTask = Task::where('student_id', $student->id)->avg('point') ?? 0;
@@ -104,10 +113,11 @@ class DashboardController extends Controller
             ->leftJoin('mapels', 'posts.mapel_id', '=', 'mapels.id')
             ->where('posts.is_task', 1)
             ->where('posts.serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('posts.classroom_id')
+                  ->orWhere('posts.classroom_id', $student->classroom_id);
+            })
             ->whereNull('tasks.id')
-            // Tampilkan semua tugas belum dikerjakan:
-            // - yang punya due_date dan belum lewat, ATAU
-            // - yang tidak punya due_date sama sekali
             ->where(function ($q) {
                 $q->whereNull('posts.due_date')
                   ->orWhereDate('posts.due_date', '>=', now());

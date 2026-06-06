@@ -30,10 +30,15 @@ class GradeController extends Controller
         /**
          * ==========================
          * AMBIL MAPEL DARI TUGAS
+         * Filter classroom_id
          * ==========================
          */
         $mapelFromTasks = Post::where('is_task', 1)
             ->where('serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
             ->pluck('mapel_id');
 
         /**
@@ -67,10 +72,26 @@ class GradeController extends Controller
          */
         $taskPosts = Post::where('is_task', 1)
             ->where('serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
             ->get(['id', 'mapel_id', 'title']);
 
-        $exercises = Exercise::where('serial_id', $student->serial_id)
-            ->whereIn('lesson_id', $lessons->pluck('id'))
+        // Exercise: serial_id langsung ATAU via share_exercises
+        $exercises = Exercise::whereIn('lesson_id', $lessons->pluck('id'))
+            ->where(function ($q) use ($student) {
+                $q->where('exercises.serial_id', $student->serial_id)
+                  ->orWhereExists(function ($sub) use ($student) {
+                      $sub->from('share_exercises')
+                          ->whereColumn('share_exercises.exercise_id', 'exercises.id')
+                          ->where('share_exercises.serial_id', $student->serial_id)
+                          ->where(function ($c) use ($student) {
+                              $c->whereNull('share_exercises.classroom_id')
+                                ->orWhere('share_exercises.classroom_id', $student->classroom_id);
+                          });
+                  });
+            })
             ->get(['id', 'lesson_id', 'title']);
 
         $taskPoints = Task::where('student_id', $student->id)->get();

@@ -40,4 +40,12 @@ class Exercise extends Model
     {
         return $this->belongsTo(ExerciseType::class, 'exercise_type_id');
     }
+
+    /**
+     * Exercise yang di-share ke serial/classroom tertentu
+     */
+    public function sharedTo()
+    {
+        return $this->hasMany(ShareExercise::class, 'exercise_id');
+    }
 }

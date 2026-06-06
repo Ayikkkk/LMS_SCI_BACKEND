@@ -53,6 +53,10 @@ class TaskController extends Controller
         $post = Post::where('id', $validated['post_id'])
             ->where('serial_id', $student->serial_id)
             ->where('is_task', 1)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
             ->firstOrFail();
 
         if ($this->isPastDeadline($post)) {
@@ -108,6 +112,10 @@ class TaskController extends Controller
             $post = Post::where('id', $postId)
                 ->where('serial_id', $student->serial_id)
                 ->where('is_task', 1)
+                ->where(function ($q) use ($student) {
+                    $q->whereNull('classroom_id')
+                      ->orWhere('classroom_id', $student->classroom_id);
+                })
                 ->first();
 
             if (!$post) {
