@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\Post;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-
 class TaskController extends Controller
 {
     /**
@@ -186,7 +186,7 @@ class TaskController extends Controller
                 'errors' => $e->errors()
             ], 422);
         } catch (\Exception $e) {
-            \Log::error('TaskController@update error: ' . $e->getMessage(), [
+            Log::error('TaskController@update error: ' . $e->getMessage(), [
                 'post_id' => $postId,
                 'trace' => $e->getTraceAsString()
             ]);
