@@ -30,62 +30,51 @@ class ExerciseController extends Controller
     {
         $student = $request->user();
 
-        // Exercise tersedia untuk siswa jika:
-        // 1. exercises.serial_id = serial siswa (cara lama), ATAU
-        // 2. Ada record di share_exercises dengan serial_id = serial siswa
-        //    DAN (classroom_id NULL atau = classroom siswa)
+        // Tampilkan semua exercise dengan serial_id yang sama
         $lessons = Lesson::whereHas('exercises', function ($q) use ($student) {
-            $q->where(function ($inner) use ($student) {
-                // Cara lama: serial_id langsung
-                $inner->where('exercises.serial_id', $student->serial_id)
-                    // Cara baru: via share_exercises
-                    ->orWhereExists(function ($sub) use ($student) {
-                        $sub->from('share_exercises')
-                            ->whereColumn('share_exercises.exercise_id', 'exercises.id')
-                            ->where('share_exercises.serial_id', $student->serial_id)
-                            ->where(function ($c) use ($student) {
-                                $c->whereNull('share_exercises.classroom_id')
-                                  ->orWhere('share_exercises.classroom_id', $student->classroom_id);
-                            });
-                    });
-            });
+            $q->where('exercises.serial_id', $student->serial_id);
         })->with(['exercises' => function ($q) use ($student) {
-            $q->where(function ($inner) use ($student) {
-                $inner->where('exercises.serial_id', $student->serial_id)
-                    ->orWhereExists(function ($sub) use ($student) {
-                        $sub->from('share_exercises')
-                            ->whereColumn('share_exercises.exercise_id', 'exercises.id')
-                            ->where('share_exercises.serial_id', $student->serial_id)
-                            ->where(function ($c) use ($student) {
-                                $c->whereNull('share_exercises.classroom_id')
-                                  ->orWhere('share_exercises.classroom_id', $student->classroom_id);
-                            });
-                    });
-            })->with('exerciseType');
+            $q->where('exercises.serial_id', $student->serial_id)
+              ->with('exerciseType');
         }])->orderBy('name')->get();
 
-        // Ambil semua exercise yang sudah dikerjakan siswa sekaligus (1 query)
+        // Ambil exercise yang sudah di-share ke serial+classroom siswa
         $allExerciseIds = $lessons->flatMap(fn($l) => $l->exercises->pluck('id'));
+
+        $sharedIds = \App\Models\ShareExercise::whereIn('exercise_id', $allExerciseIds)
+            ->where('serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
+            ->pluck('exercise_id')
+            ->flip(); // flip agar bisa isset()
+
+        // Ambil exercise yang sudah dikerjakan siswa
         $doneIds = ExercisePoint::where('student_id', $student->id)
             ->whereIn('exercise_id', $allExerciseIds)
             ->pluck('exercise_id')
             ->flip();
 
-        $data = $lessons->map(function ($lesson) use ($doneIds) {
+        $data = $lessons->map(function ($lesson) use ($doneIds, $sharedIds) {
             $types = $lesson->exercises->groupBy(function ($ex) {
                 return $ex->exerciseType ? $ex->exerciseType->id : null;
-            })->map(function ($group, $key) use ($doneIds) {
+            })->map(function ($group, $key) use ($doneIds, $sharedIds) {
                 if ($key === null) return null;
                 $type = $group->first()->exerciseType;
-                $total = $group->count();
-                $done  = $group->filter(fn($ex) => isset($doneIds[$ex->id]))->count();
+                $total   = $group->count();
+                $done    = $group->filter(fn($ex) => isset($doneIds[$ex->id]))->count();
+                // Terkunci jika TIDAK ADA satupun exercise di tipe ini yang sudah di-share
+                $unlockedCount = $group->filter(fn($ex) => isset($sharedIds[$ex->id]))->count();
                 return [
-                    'id'            => $type->id,
-                    'kode'          => $type->kode,
-                    'name'          => $type->name,
-                    'count'         => $total,
-                    'done_count'    => $done,
-                    'pending_count' => $total - $done,
+                    'id'             => $type->id,
+                    'kode'           => $type->kode,
+                    'name'           => $type->name,
+                    'count'          => $total,
+                    'done_count'     => $done,
+                    'pending_count'  => $total - $done,
+                    'unlocked_count' => $unlockedCount,
+                    'is_locked'      => $unlockedCount === 0,
                 ];
             })->filter()->values();
 
@@ -109,22 +98,10 @@ class ExerciseController extends Controller
         $student = $request->user();
         $typeId = $request->query('type_id');
 
+        // Tampilkan semua exercise milik serial siswa
         $query = Exercise::with('exerciseType')
             ->where('lesson_id', $lessonId)
-            ->where(function ($q) use ($student) {
-                // Cara lama: serial_id langsung
-                $q->where('exercises.serial_id', $student->serial_id)
-                  // Cara baru: via share_exercises
-                  ->orWhereExists(function ($sub) use ($student) {
-                      $sub->from('share_exercises')
-                          ->whereColumn('share_exercises.exercise_id', 'exercises.id')
-                          ->where('share_exercises.serial_id', $student->serial_id)
-                          ->where(function ($c) use ($student) {
-                              $c->whereNull('share_exercises.classroom_id')
-                                ->orWhere('share_exercises.classroom_id', $student->classroom_id);
-                          });
-                  });
-            });
+            ->where('exercises.serial_id', $student->serial_id);
 
         if ($typeId) {
             $query->where('exercise_type_id', $typeId);
@@ -132,30 +109,43 @@ class ExerciseController extends Controller
 
         $exercises = $query->orderBy('id', 'desc')->get();
 
-        // Ambil semua hasil kuis siswa untuk exercise di lesson ini sekaligus
         $exerciseIds = $exercises->pluck('id');
+
+        // Cek mana yang sudah di-share
+        $sharedIds = \App\Models\ShareExercise::whereIn('exercise_id', $exerciseIds)
+            ->where('serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })
+            ->pluck('exercise_id')
+            ->flip();
+
+        // Ambil semua hasil kuis siswa untuk exercise di lesson ini sekaligus
         $points = ExercisePoint::where('student_id', $student->id)
             ->whereIn('exercise_id', $exerciseIds)
             ->get()
             ->keyBy('exercise_id');
 
-        $data = $exercises->map(function ($ex) use ($points) {
+        $data = $exercises->map(function ($ex) use ($points, $sharedIds) {
             $point = $points->get($ex->id);
             return [
-                'id'            => $ex->id,
-                'lesson_id'     => $ex->lesson_id,
-                'serial_id'     => $ex->serial_id,
+                'id'               => $ex->id,
+                'lesson_id'        => $ex->lesson_id,
+                'serial_id'        => $ex->serial_id,
                 'exercise_type_id' => $ex->exercise_type_id,
-                'title'         => $ex->title,
-                'is_admin'      => $ex->is_admin,
-                'created_at'    => $ex->created_at,
-                'updated_at'    => $ex->updated_at,
-                'deleted_at'    => $ex->deleted_at,
-                'exercise_type' => $ex->exerciseType,
+                'title'            => $ex->title,
+                'is_admin'         => $ex->is_admin,
+                'created_at'       => $ex->created_at,
+                'updated_at'       => $ex->updated_at,
+                'deleted_at'       => $ex->deleted_at,
+                'exercise_type'    => $ex->exerciseType,
                 // Status pengerjaan
-                'is_done'       => $point !== null,
-                'score'         => $point ? $point->exercise_point : null,
-                'is_pending_review' => $point && $point->exercise_point === null,
+                'is_done'          => $point !== null,
+                'score'            => $point ? $point->exercise_point : null,
+                'is_pending_review'=> $point && $point->exercise_point === null,
+                // Terkunci jika belum di-share guru
+                'is_locked'        => !isset($sharedIds[$ex->id]),
             ];
         });
 
@@ -175,19 +165,27 @@ class ExerciseController extends Controller
             ], 404);
         }
 
-        // Validasi akses: serial_id langsung ATAU via share_exercises
-        $hasAccess = ($exercise->serial_id !== null && $exercise->serial_id === $student->serial_id)
-            || \App\Models\ShareExercise::where('exercise_id', $id)
-                ->where('serial_id', $student->serial_id)
-                ->where(function ($q) use ($student) {
-                    $q->whereNull('classroom_id')
-                      ->orWhere('classroom_id', $student->classroom_id);
-                })->exists();
-
-        if (!$hasAccess) {
+        // Validasi akses: serial_id langsung HARUS cocok
+        if ($exercise->serial_id !== null && $exercise->serial_id !== $student->serial_id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Akses latihan tidak diizinkan'
+            ], 403);
+        }
+
+        // Cek apakah sudah di-share (tidak terkunci)
+        $isShared = \App\Models\ShareExercise::where('exercise_id', $id)
+            ->where('serial_id', $student->serial_id)
+            ->where(function ($q) use ($student) {
+                $q->whereNull('classroom_id')
+                  ->orWhere('classroom_id', $student->classroom_id);
+            })->exists();
+
+        if (!$isShared) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kuis ini belum dibuka oleh guru',
+                'is_locked' => true,
             ], 403);
         }
 
