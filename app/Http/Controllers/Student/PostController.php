@@ -183,7 +183,15 @@ class PostController extends Controller
             ], 404);
         }
 
-        $path = storage_path('app/public/' . $post->attachment);
+        // Attachment bisa berupa path relatif atau full URL lama
+        $attachment = $post->attachment;
+        if (str_starts_with($attachment, 'http://') || str_starts_with($attachment, 'https://')) {
+            // Legacy: ambil path relatif saja
+            $parsed = parse_url($attachment, PHP_URL_PATH);
+            $attachment = ltrim(str_replace('/storage/', '', $parsed), '/');
+        }
+
+        $path = storage_path('app/public/' . $attachment);
 
         if (!file_exists($path)) {
             return response()->json([
@@ -192,7 +200,14 @@ class PostController extends Controller
             ], 404);
         }
 
-        return response()->download($path);
+        $mimeType = mime_content_type($path) ?: 'application/octet-stream';
+        $fileName = basename($path);
+
+        return response()->file($path, [
+            'Content-Type'              => $mimeType,
+            'Content-Disposition'       => 'attachment; filename="' . $fileName . '"',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
     }
 
 

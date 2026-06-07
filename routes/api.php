@@ -154,19 +154,21 @@ Route::prefix('student')->group(function () {
 // =======================
 // PUBLIC FILE SERVING
 // Bypass Nginx 403 pada /storage/ — semua request /api/files/* diteruskan ke Laravel
+// Mendukung semua subfolder: students/, posts/, tasks/, users/, dll.
 // =======================
 Route::get('/files/{path}', function (string $path) {
     $fullPath = storage_path('app/public/' . $path);
 
     if (!file_exists($fullPath)) {
-        abort(404);
+        // Fallback: coba tanpa prefix (jika path sudah mengandung subfolder)
+        abort(404, 'File tidak ditemukan');
     }
 
     $mimeType = mime_content_type($fullPath) ?: 'application/octet-stream';
 
     return response()->file($fullPath, [
-        'Content-Type'        => $mimeType,
-        'Cache-Control'       => 'public, max-age=86400',
+        'Content-Type'                => $mimeType,
+        'Cache-Control'               => 'public, max-age=86400',
         'Access-Control-Allow-Origin' => '*',
     ]);
 })->where('path', '.*');

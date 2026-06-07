@@ -224,7 +224,14 @@ class TaskController extends Controller
             ], 404);
         }
 
-        return response()->download($path);
+        $mimeType = mime_content_type($path) ?: 'application/octet-stream';
+        $fileName = $task->attachment;
+
+        return response()->file($path, [
+            'Content-Type'              => $mimeType,
+            'Content-Disposition'       => 'attachment; filename="' . $fileName . '"',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
     }
 
     private function isPastDeadline(Post $post): bool
