@@ -170,42 +170,76 @@ class PostController extends Controller
      */
     public function downloadAttachment(Request $request, $id)
     {
-        $student = $request->user('student');
+        $student = $request->user();
 
+        // Validasi akses: serial cocok DAN (classroom null atau cocok)
         $post = Post::where('id', $id)
-            ->where('serial_id', $student->serial_id)
-            ->firstOrFail();
+            ->where(function ($q) use ($student) {
+                // Post milik serial siswa
+                $q->where('serial_id', $student->serial_id)
+                  ->where(function ($inner) use ($student) {
+                      $inner->whereNull('classroom_id')
+                            ->orWhere('classroom_id', $student->classroom_id);
+                  });
+            })
+            ->first();
+
+        // Fallback: jika post ditemukan tapi tidak match filter,
+        // cek apakah ID-nya valid saja (untuk debug)
+        if (!$post) {
+            $exists = Post::where('id', $id)->exists();
+            return response()->json([
+                'success' => false,
+                'message' => $exists
+                    ? 'Anda tidak memiliki akses ke file ini.'
+                    : 'Materi/tugas tidak ditemukan.'
+            ], 404);
+        }
 
         if (!$post->attachment) {
             return response()->json([
                 'success' => false,
-                'message' => 'File tidak tersedia'
+                'message' => 'File lampiran tidak tersedia.'
             ], 404);
         }
 
         // Attachment bisa berupa path relatif atau full URL lama
         $attachment = $post->attachment;
         if (str_starts_with($attachment, 'http://') || str_starts_with($attachment, 'https://')) {
-            // Legacy: ambil path relatif saja
             $parsed = parse_url($attachment, PHP_URL_PATH);
             $attachment = ltrim(str_replace('/storage/', '', $parsed), '/');
         }
 
-        $path = storage_path('app/public/' . $attachment);
+        // Coba beberapa lokasi penyimpanan
+        $possiblePaths = [
+            storage_path('app/public/' . $attachment),
+            storage_path('app/public/posts/' . $attachment),
+            storage_path('app/' . $attachment),
+            public_path('storage/' . $attachment),
+        ];
 
-        if (!file_exists($path)) {
+        $filePath = null;
+        foreach ($possiblePaths as $p) {
+            if (file_exists($p)) {
+                $filePath = $p;
+                break;
+            }
+        }
+
+        if (!$filePath) {
             return response()->json([
                 'success' => false,
-                'message' => 'File tidak ditemukan'
+                'message' => 'File tidak ditemukan di server.',
+                'debug_path' => $possiblePaths[0], // hanya untuk debug
             ], 404);
         }
 
-        $mimeType = mime_content_type($path) ?: 'application/octet-stream';
-        $fileName = basename($path);
+        $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
+        $fileName = basename($filePath);
 
-        return response()->file($path, [
-            'Content-Type'              => $mimeType,
-            'Content-Disposition'       => 'attachment; filename="' . $fileName . '"',
+        return response()->file($filePath, [
+            'Content-Type'                => $mimeType,
+            'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
             'Access-Control-Allow-Origin' => '*',
         ]);
     }
