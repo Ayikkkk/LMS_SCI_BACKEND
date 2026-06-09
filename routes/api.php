@@ -152,10 +152,65 @@ Route::prefix('student')->group(function () {
 });
 
 // =======================
-// PUBLIC FILE SERVING
-// Bypass Nginx 403 pada /storage/ — semua request /api/files/* diteruskan ke Laravel
-// Mendukung semua subfolder: students/, posts/, tasks/, users/, dll.
+// PUBLIC IMAGE PROXY
+// Download gambar dari domain eksternal (backend guru) dan teruskan ke Flutter
+// Menghindari SSL/CORS issue saat HP load gambar langsung dari domain guru
 // =======================
+Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
+    $url = $request->query('url');
+
+    if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+        abort(400, 'Invalid URL');
+    }
+
+    // Whitelist domain yang diizinkan
+    $allowedDomains = [
+        'tak-scimediaonline.my.id',
+        '151.243.222.93',
+        '127.0.0.1',
+    ];
+
+    $host = parse_url($url, PHP_URL_HOST);
+    $allowed = collect($allowedDomains)->contains(fn($d) => str_contains($host, $d));
+
+    if (!$allowed) {
+        abort(403, 'Domain not allowed');
+    }
+
+    try {
+        $context = stream_context_create([
+            'ssl' => [
+                'verify_peer'      => false,
+                'verify_peer_name' => false,
+            ],
+            'http' => [
+                'timeout' => 10,
+            ],
+        ]);
+
+        $imageData = file_get_contents($url, false, $context);
+
+        if ($imageData === false) {
+            abort(404, 'Image not found');
+        }
+
+        $mimeType = 'image/jpeg'; // default
+        foreach ($http_response_header as $header) {
+            if (stripos($header, 'Content-Type:') !== false) {
+                $mimeType = trim(explode(':', $header, 2)[1]);
+                break;
+            }
+        }
+
+        return response($imageData, 200, [
+            'Content-Type'                => $mimeType,
+            'Cache-Control'               => 'public, max-age=86400',
+            'Access-Control-Allow-Origin' => '*',
+        ]);
+    } catch (\Exception $e) {
+        abort(500, 'Failed to fetch image');
+    }
+});
 Route::get('/files/{path}', function (string $path) {
     $fullPath = storage_path('app/public/' . $path);
 
