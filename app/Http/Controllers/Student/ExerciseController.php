@@ -196,13 +196,15 @@ class ExerciseController extends Controller
             $questionHtml = $item->question ?? '';
             $questionText = strip_tags($questionHtml);
 
-            $options = $this->parseOptions($item->selection, $item->exercise_model_id);
+            $options     = $this->parseOptions($item->selection, $item->exercise_model_id);
+            $optionsHtml = $this->parseOptionsHtml($item->selection, $item->exercise_model_id);
 
             return [
                 'id'               => $item->id,
-                'question'         => $questionText,   // teks bersih (backward compat)
-                'question_html'    => $questionHtml,   // HTML lengkap dengan gambar
+                'question'         => $questionText,
+                'question_html'    => $questionHtml,
                 'options'          => $options,
+                'options_html'     => $optionsHtml, // opsi dengan HTML asli
                 'type'             => $this->mapModelIdToType($item->exercise_model_id),
                 'is_multiple'      => $item->exercise_model_id == 2,
                 'allow_multiple'   => $item->exercise_model_id == 2,
@@ -228,8 +230,15 @@ class ExerciseController extends Controller
         ]);
     }
 
-    //  Parse options dari kolom 'selection'
+    //  Parse options dari kolom 'selection' — kembalikan teks bersih (backward compat)
     private function parseOptions($selection, $modelId)
+    {
+        $htmlOptions = $this->parseOptionsHtml($selection, $modelId);
+        return array_map('strip_tags', $htmlOptions);
+    }
+
+    //  Parse options HTML asli (dengan gambar jika ada)
+    private function parseOptionsHtml($selection, $modelId)
     {
         if (in_array($modelId, [4, 5, 7])) {
             return [];
@@ -245,10 +254,8 @@ class ExerciseController extends Controller
             try {
                 $decoded = json_decode($selection, true);
                 if (is_array($decoded)) {
-                    $options = array_map(function ($opt) {
-                        return strip_tags($opt);
-                    }, $decoded);
-                    return array_values($options);
+                    // Kembalikan HTML asli tanpa strip_tags
+                    return array_values($decoded);
                 }
             } catch (\Exception $e) {
                 // Continue to manual parsing
@@ -261,12 +268,8 @@ class ExerciseController extends Controller
             $options = array_map('trim', explode(',', $selection));
         }
 
-        $options = array_map(function ($opt) {
-            return strip_tags($opt);
-        }, $options);
-
         $options = array_filter($options, function ($opt) {
-            return !empty($opt);
+            return !empty(trim($opt));
         });
 
         return array_values($options);
