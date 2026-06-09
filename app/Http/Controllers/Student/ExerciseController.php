@@ -192,19 +192,23 @@ class ExerciseController extends Controller
         /** @var Exercise $exercise */
         // Format items dengan tipe soal yang benar, lalu acak urutan
         $formattedItems = $exercise->items->map(function ($item) {
-            $question = strip_tags($item->question);
+            // Kirim HTML asli untuk mendukung gambar, kemudian teks bersih sebagai fallback
+            $questionHtml = $item->question ?? '';
+            $questionText = strip_tags($questionHtml);
+
             $options = $this->parseOptions($item->selection, $item->exercise_model_id);
 
             return [
-                'id' => $item->id,
-                'question' => $question,
-                'options' => $options,
-                'type' => $this->mapModelIdToType($item->exercise_model_id),
-                'is_multiple' => $item->exercise_model_id == 2,
-                'allow_multiple' => $item->exercise_model_id == 2,
+                'id'               => $item->id,
+                'question'         => $questionText,   // teks bersih (backward compat)
+                'question_html'    => $questionHtml,   // HTML lengkap dengan gambar
+                'options'          => $options,
+                'type'             => $this->mapModelIdToType($item->exercise_model_id),
+                'is_multiple'      => $item->exercise_model_id == 2,
+                'allow_multiple'   => $item->exercise_model_id == 2,
                 'multiple_correct' => $item->exercise_model_id == 2,
-                'exercise_model_id' => $item->exercise_model_id,
-                'exercise_choice' => $item->exercise_choice,
+                'exercise_model_id'=> $item->exercise_model_id,
+                'exercise_choice'  => $item->exercise_choice,
             ];
         })
             ->shuffle() // acak urutan soal setiap request
