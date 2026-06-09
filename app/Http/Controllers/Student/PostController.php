@@ -214,6 +214,7 @@ class PostController extends Controller
         $possiblePaths = [
             storage_path('app/public/' . $attachment),
             storage_path('app/public/posts/' . $attachment),
+            storage_path('app/public/tugas/' . basename($attachment)),
             storage_path('app/' . $attachment),
             public_path('storage/' . $attachment),
         ];
@@ -227,10 +228,53 @@ class PostController extends Controller
         }
 
         if (!$filePath) {
+            \Log::warning('File attachment not found locally, trying guru domain', [
+                'post_id'    => $id,
+                'attachment' => $attachment,
+            ]);
+
+            // Fallback: coba fetch dari domain guru via cURL (file diupload oleh guru)
+            $guruDomain = 'https://tak-scimediaonline.my.id';
+            $guruUrl    = $guruDomain . '/storage/' . $attachment;
+
+            $ch = curl_init($guruUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => false,
+                CURLOPT_TIMEOUT        => 30,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_USERAGENT      => 'Mozilla/5.0',
+            ]);
+
+            $fileContent  = curl_exec($ch);
+            $httpCode     = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $contentType  = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
+            $curlError    = curl_error($ch);
+            curl_close($ch);
+
+            if ($fileContent !== false && $httpCode === 200 && !empty($fileContent)) {
+                $fileName = basename($attachment);
+                $mimeType = explode(';', $contentType)[0] ?: 'application/octet-stream';
+
+                return response($fileContent, 200, [
+                    'Content-Type'                => trim($mimeType),
+                    'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
+                    'Access-Control-Allow-Origin' => '*',
+                    'Cache-Control'               => 'private, no-cache',
+                ]);
+            }
+
+            \Log::error('File not found in guru domain either', [
+                'guru_url'   => $guruUrl,
+                'http_code'  => $httpCode,
+                'curl_error' => $curlError,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'File tidak ditemukan di server.',
-                'debug_path' => $possiblePaths[0], // hanya untuk debug
+                'message' => 'File tidak ditemukan. Hubungi guru untuk memastikan file telah diupload.',
             ], 404);
         }
 
