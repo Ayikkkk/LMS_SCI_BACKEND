@@ -153,8 +153,8 @@ Route::prefix('student')->group(function () {
 
 // =======================
 // PUBLIC IMAGE PROXY
-// Download gambar dari domain eksternal (backend guru) dan teruskan ke Flutter
-// Menghindari SSL/CORS issue saat HP load gambar langsung dari domain guru
+// Download gambar dari domain eksternal (backend guru) menggunakan cURL
+// cURL mendukung TLS lebih baik dari file_get_contents
 // =======================
 Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
     $url = $request->query('url');
@@ -177,39 +177,44 @@ Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
         abort(403, 'Domain not allowed');
     }
 
-    try {
-        $context = stream_context_create([
-            'ssl' => [
-                'verify_peer'      => false,
-                'verify_peer_name' => false,
-            ],
-            'http' => [
-                'timeout' => 10,
-            ],
-        ]);
+    // Gunakan cURL agar TLS support lebih baik
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => true,
+        CURLOPT_SSL_VERIFYPEER => false,  // bypass SSL verify
+        CURLOPT_SSL_VERIFYHOST => false,
+        CURLOPT_TIMEOUT        => 15,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_USERAGENT      => 'Mozilla/5.0 (Linux; Android 13)',
+        CURLOPT_HTTPHEADER     => ['Accept: image/*'],
+        // TLS options untuk kompatibilitas
+        CURLOPT_SSLVERSION     => CURL_SSLVERSION_TLSv1_2,
+    ]);
 
-        $imageData = file_get_contents($url, false, $context);
+    $imageData = curl_exec($ch);
+    $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $mimeType  = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/jpeg';
+    $curlError = curl_error($ch);
+    curl_close($ch);
 
-        if ($imageData === false) {
-            abort(404, 'Image not found');
-        }
-
-        $mimeType = 'image/jpeg'; // default
-        foreach ($http_response_header as $header) {
-            if (stripos($header, 'Content-Type:') !== false) {
-                $mimeType = trim(explode(':', $header, 2)[1]);
-                break;
-            }
-        }
-
-        return response($imageData, 200, [
-            'Content-Type'                => $mimeType,
-            'Cache-Control'               => 'public, max-age=86400',
-            'Access-Control-Allow-Origin' => '*',
-        ]);
-    } catch (\Exception $e) {
-        abort(500, 'Failed to fetch image');
+    if ($imageData === false || !empty($curlError)) {
+        \Log::error('Proxy image cURL error: ' . $curlError . ' URL: ' . $url);
+        abort(502, 'Failed to fetch image: ' . $curlError);
     }
+
+    if ($httpCode !== 200) {
+        abort($httpCode ?: 502, 'Upstream returned ' . $httpCode);
+    }
+
+    // Hapus parameter Content-Type yang mungkin mengandung charset
+    $mimeType = explode(';', $mimeType)[0];
+
+    return response($imageData, 200, [
+        'Content-Type'                => trim($mimeType) ?: 'image/jpeg',
+        'Cache-Control'               => 'public, max-age=86400',
+        'Access-Control-Allow-Origin' => '*',
+    ]);
 });
 Route::get('/files/{path}', function (string $path) {
     $fullPath = storage_path('app/public/' . $path);
