@@ -235,61 +235,74 @@ class PostController extends Controller
                 'attachment' => $attachment,
             ]);
 
-            // Fallback: coba beberapa URL dari domain guru
-            $guruDomain = 'http://guru.tak-scimediaonline.my.id';
+            try {
+                // Fallback: coba beberapa URL dari domain guru
+                $guruDomain = 'http://guru.tak-scimediaonline.my.id';
+                $encodedAttachment = implode('/', array_map('rawurlencode', explode('/', $attachment)));
 
-            // Encode setiap segmen path tapi pertahankan separator /
-            $encodedAttachment = implode('/', array_map('rawurlencode', explode('/', $attachment)));
+                $guruUrls = [
+                    $guruDomain . '/storage/' . $encodedAttachment,
+                    $guruDomain . '/storage/' . $attachment,
+                    $guruDomain . '/api/files/' . $encodedAttachment,
+                ];
 
-            $guruUrls = [
-                $guruDomain . '/storage/' . $encodedAttachment,   // URL-encoded
-                $guruDomain . '/storage/' . $attachment,          // tanpa encode (fallback)
-                $guruDomain . '/api/files/' . $encodedAttachment, // via /api/files/ jika ada
-            ];
+                foreach ($guruUrls as $guruUrl) {
+                    if (!function_exists('curl_init')) break;
 
-            foreach ($guruUrls as $guruUrl) {
-                $ch = curl_init($guruUrl);
-                curl_setopt_array($ch, [
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_FOLLOWLOCATION => true,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_SSL_VERIFYHOST => false,
-                    CURLOPT_TIMEOUT        => 30,
-                    CURLOPT_CONNECTTIMEOUT => 10,
-                    CURLOPT_USERAGENT      => 'Mozilla/5.0',
-                ]);
+                    $ch = curl_init($guruUrl);
+                    curl_setopt_array($ch, [
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_FOLLOWLOCATION => true,
+                        CURLOPT_SSL_VERIFYPEER => false,
+                        CURLOPT_SSL_VERIFYHOST => false,
+                        CURLOPT_TIMEOUT        => 30,
+                        CURLOPT_CONNECTTIMEOUT => 10,
+                        CURLOPT_USERAGENT      => 'Mozilla/5.0',
+                        CURLOPT_BUFFERSIZE     => 65536,
+                    ]);
 
-                $fileContent = curl_exec($ch);
-                $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
-                $curlError   = curl_error($ch);
-                curl_close($ch);
+                    $fileContent = curl_exec($ch);
+                    $httpCode    = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    $contentType = (string) (curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream');
+                    $curlError   = curl_error($ch);
+                    curl_close($ch);
 
-                if ($fileContent !== false && $httpCode === 200 && strlen($fileContent) > 100) {
-                    $fileName = basename($attachment);
-                    $mimeType = explode(';', $contentType)[0] ?: 'application/octet-stream';
+                    if ($fileContent !== false && $httpCode === 200 && strlen($fileContent) > 10) {
+                        $fileName = basename($attachment);
+                        $mimeType = trim(explode(';', $contentType)[0]) ?: 'application/octet-stream';
 
-                    Log::info('File fetched from guru domain', ['url' => $guruUrl]);
+                        Log::info('File fetched from guru domain', [
+                            'url'  => $guruUrl,
+                            'size' => strlen($fileContent),
+                            'mime' => $mimeType,
+                        ]);
 
-                    return response($fileContent, 200, [
-                        'Content-Type'                => trim($mimeType),
-                        'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
-                        'Access-Control-Allow-Origin' => '*',
-                        'Cache-Control'               => 'private, no-cache',
+                        // Simpan ke temp file agar bisa di-stream dengan aman
+                        $tempPath = tempnam(sys_get_temp_dir(), 'attachment_');
+                        file_put_contents($tempPath, $fileContent);
+                        unset($fileContent); // free memory
+
+                        return response()->file($tempPath, [
+                            'Content-Type'                => $mimeType,
+                            'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
+                            'Access-Control-Allow-Origin' => '*',
+                        ])->deleteFileAfterSend(true);
+                    }
+
+                    Log::warning('Guru URL failed', [
+                        'url'       => $guruUrl,
+                        'http_code' => $httpCode,
+                        'error'     => $curlError,
                     ]);
                 }
-
-                Log::warning('Guru URL failed', [
-                    'url'        => $guruUrl,
-                    'http_code'  => $httpCode,
-                    'curl_error' => $curlError,
-                ]);
+            } catch (\Exception $e) {
+                Log::error('Exception in guru domain fallback: ' . $e->getMessage());
             }
 
             return response()->json([
                 'success' => false,
-                'message' => 'File tidak dapat diakses. Minta guru untuk mengaktifkan akses file di backend guru.',
-            ], 503);
+                'message' => 'File tidak dapat diakses. Hubungi guru untuk mengaktifkan akses file.',
+            ], 404);
         }
 
         $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
