@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 // STUDENT CONTROLLERS
@@ -166,6 +167,7 @@ Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
     // Whitelist domain yang diizinkan
     $allowedDomains = [
         'tak-scimediaonline.my.id',
+        'guru.tak-scimediaonline.my.id',
         '151.243.222.93',
         '127.0.0.1',
     ];
@@ -199,7 +201,7 @@ Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
     curl_close($ch);
 
     if ($imageData === false || !empty($curlError)) {
-        \Log::error('Proxy image cURL error: ' . $curlError . ' URL: ' . $url);
+        Log::error('Proxy image cURL error: ' . $curlError . ' URL: ' . $url);
         abort(502, 'Failed to fetch image: ' . $curlError);
     }
 

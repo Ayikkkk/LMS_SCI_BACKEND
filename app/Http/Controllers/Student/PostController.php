@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+
 
 class PostController extends Controller
 {
@@ -228,54 +230,66 @@ class PostController extends Controller
         }
 
         if (!$filePath) {
-            \Log::warning('File attachment not found locally, trying guru domain', [
+            Log::warning('File attachment not found locally, trying guru domain', [
                 'post_id'    => $id,
                 'attachment' => $attachment,
             ]);
 
-            // Fallback: coba fetch dari domain guru via cURL (file diupload oleh guru)
-            $guruDomain = 'https://tak-scimediaonline.my.id';
-            $guruUrl    = $guruDomain . '/storage/' . $attachment;
+            // Fallback: coba beberapa URL dari domain guru
+            $guruDomain = 'http://guru.tak-scimediaonline.my.id';
 
-            $ch = curl_init($guruUrl);
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => false,
-                CURLOPT_TIMEOUT        => 30,
-                CURLOPT_CONNECTTIMEOUT => 10,
-                CURLOPT_USERAGENT      => 'Mozilla/5.0',
-            ]);
+            // Encode setiap segmen path tapi pertahankan separator /
+            $encodedAttachment = implode('/', array_map('rawurlencode', explode('/', $attachment)));
 
-            $fileContent  = curl_exec($ch);
-            $httpCode     = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $contentType  = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
-            $curlError    = curl_error($ch);
-            curl_close($ch);
+            $guruUrls = [
+                $guruDomain . '/storage/' . $encodedAttachment,   // URL-encoded
+                $guruDomain . '/storage/' . $attachment,          // tanpa encode (fallback)
+                $guruDomain . '/api/files/' . $encodedAttachment, // via /api/files/ jika ada
+            ];
 
-            if ($fileContent !== false && $httpCode === 200 && !empty($fileContent)) {
-                $fileName = basename($attachment);
-                $mimeType = explode(';', $contentType)[0] ?: 'application/octet-stream';
+            foreach ($guruUrls as $guruUrl) {
+                $ch = curl_init($guruUrl);
+                curl_setopt_array($ch, [
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_FOLLOWLOCATION => true,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_SSL_VERIFYHOST => false,
+                    CURLOPT_TIMEOUT        => 30,
+                    CURLOPT_CONNECTTIMEOUT => 10,
+                    CURLOPT_USERAGENT      => 'Mozilla/5.0',
+                ]);
 
-                return response($fileContent, 200, [
-                    'Content-Type'                => trim($mimeType),
-                    'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
-                    'Access-Control-Allow-Origin' => '*',
-                    'Cache-Control'               => 'private, no-cache',
+                $fileContent = curl_exec($ch);
+                $httpCode    = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $contentType = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream';
+                $curlError   = curl_error($ch);
+                curl_close($ch);
+
+                if ($fileContent !== false && $httpCode === 200 && strlen($fileContent) > 100) {
+                    $fileName = basename($attachment);
+                    $mimeType = explode(';', $contentType)[0] ?: 'application/octet-stream';
+
+                    Log::info('File fetched from guru domain', ['url' => $guruUrl]);
+
+                    return response($fileContent, 200, [
+                        'Content-Type'                => trim($mimeType),
+                        'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
+                        'Access-Control-Allow-Origin' => '*',
+                        'Cache-Control'               => 'private, no-cache',
+                    ]);
+                }
+
+                Log::warning('Guru URL failed', [
+                    'url'        => $guruUrl,
+                    'http_code'  => $httpCode,
+                    'curl_error' => $curlError,
                 ]);
             }
 
-            \Log::error('File not found in guru domain either', [
-                'guru_url'   => $guruUrl,
-                'http_code'  => $httpCode,
-                'curl_error' => $curlError,
-            ]);
-
             return response()->json([
                 'success' => false,
-                'message' => 'File tidak ditemukan. Hubungi guru untuk memastikan file telah diupload.',
-            ], 404);
+                'message' => 'File tidak dapat diakses. Minta guru untuk mengaktifkan akses file di backend guru.',
+            ], 503);
         }
 
         $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
