@@ -230,78 +230,41 @@ class PostController extends Controller
         }
 
         if (!$filePath) {
-            Log::warning('File attachment not found locally, trying guru domain', [
+            Log::warning('File not found locally, redirecting to guru domain', [
                 'post_id'    => $id,
                 'attachment' => $attachment,
             ]);
 
-            try {
-                // Fallback: coba beberapa URL dari domain guru
-                $guruDomain = 'http://guru.tak-scimediaonline.my.id';
-                $encodedAttachment = implode('/', array_map('rawurlencode', explode('/', $attachment)));
+            // Redirect langsung ke domain guru — lebih efisien dari proxy
+            $guruDomain = 'http://guru.tak-scimediaonline.my.id';
+            $encodedAttachment = implode('/', array_map('rawurlencode', explode('/', $attachment)));
+            $guruUrl = $guruDomain . '/storage/' . $encodedAttachment;
 
-                $guruUrls = [
-                    $guruDomain . '/storage/' . $encodedAttachment,
-                    $guruDomain . '/storage/' . $attachment,
-                    $guruDomain . '/api/files/' . $encodedAttachment,
-                ];
+            // Cek apakah URL domain guru bisa diakses
+            $ch = curl_init($guruUrl);
+            curl_setopt_array($ch, [
+                CURLOPT_NOBODY         => true, // HEAD request saja
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_TIMEOUT        => 10,
+                CURLOPT_CONNECTTIMEOUT => 5,
+            ]);
+            curl_exec($ch);
+            $httpCode  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $finalUrl  = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
+            curl_close($ch);
 
-                foreach ($guruUrls as $guruUrl) {
-                    if (!function_exists('curl_init')) break;
-
-                    $ch = curl_init($guruUrl);
-                    curl_setopt_array($ch, [
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_FOLLOWLOCATION => true,
-                        CURLOPT_SSL_VERIFYPEER => false,
-                        CURLOPT_SSL_VERIFYHOST => false,
-                        CURLOPT_TIMEOUT        => 30,
-                        CURLOPT_CONNECTTIMEOUT => 10,
-                        CURLOPT_USERAGENT      => 'Mozilla/5.0',
-                        CURLOPT_BUFFERSIZE     => 65536,
-                    ]);
-
-                    $fileContent = curl_exec($ch);
-                    $httpCode    = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    $contentType = (string) (curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'application/octet-stream');
-                    $curlError   = curl_error($ch);
-                    curl_close($ch);
-
-                    if ($fileContent !== false && $httpCode === 200 && strlen($fileContent) > 10) {
-                        $fileName = basename($attachment);
-                        $mimeType = trim(explode(';', $contentType)[0]) ?: 'application/octet-stream';
-
-                        Log::info('File fetched from guru domain', [
-                            'url'  => $guruUrl,
-                            'size' => strlen($fileContent),
-                            'mime' => $mimeType,
-                        ]);
-
-                        // Simpan ke temp file agar bisa di-stream dengan aman
-                        $tempPath = tempnam(sys_get_temp_dir(), 'attachment_');
-                        file_put_contents($tempPath, $fileContent);
-                        unset($fileContent); // free memory
-
-                        return response()->file($tempPath, [
-                            'Content-Type'                => $mimeType,
-                            'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
-                            'Access-Control-Allow-Origin' => '*',
-                        ])->deleteFileAfterSend(true);
-                    }
-
-                    Log::warning('Guru URL failed', [
-                        'url'       => $guruUrl,
-                        'http_code' => $httpCode,
-                        'error'     => $curlError,
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error('Exception in guru domain fallback: ' . $e->getMessage());
+            if ($httpCode === 200) {
+                // File tersedia di domain guru — redirect langsung
+                return redirect()->away($finalUrl ?: $guruUrl);
             }
+
+            Log::warning('Guru domain also returned ' . $httpCode . ' for: ' . $guruUrl);
 
             return response()->json([
                 'success' => false,
-                'message' => 'File tidak dapat diakses. Hubungi guru untuk mengaktifkan akses file.',
+                'message' => 'File tidak dapat diakses. Hubungi guru untuk memastikan file telah diupload.',
             ], 404);
         }
 
