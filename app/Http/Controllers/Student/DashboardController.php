@@ -91,8 +91,17 @@ class DashboardController extends Controller
                     'id' => $meeting->id,
                     'title' => $meeting->title,
                     'platform' => 'Jitsi Meet',
-                    'start_time' => $meeting->start_time,
-                    'end_time' => $meeting->end_time,
+                    // Kirim sebagai ISO 8601 dengan timezone WIB eksplisit
+                    'start_time' => $meeting->start_time
+                        ? \Carbon\Carbon::parse($meeting->start_time)
+                            ->setTimezone('Asia/Jakarta')
+                            ->toIso8601String()
+                        : null,
+                    'end_time' => $meeting->end_time
+                        ? \Carbon\Carbon::parse($meeting->end_time)
+                            ->setTimezone('Asia/Jakarta')
+                            ->toIso8601String()
+                        : null,
                     'status' => $meeting->status,
 
                     //  SAFE CHECK
