@@ -92,14 +92,13 @@ class DashboardController extends Controller
                     'title' => $meeting->title,
                     'platform' => 'Jitsi Meet',
                     // Kirim sebagai ISO 8601 dengan timezone WIB eksplisit
+                    // getRawOriginal() ambil nilai DB as-is (WIB), lalu parse dengan timezone WIB
                     'start_time' => $meeting->start_time
-                        ? \Carbon\Carbon::parse($meeting->start_time)
-                            ->setTimezone('Asia/Jakarta')
+                        ? \Carbon\Carbon::parse($meeting->getRawOriginal('start_time'), 'Asia/Jakarta')
                             ->toIso8601String()
                         : null,
                     'end_time' => $meeting->end_time
-                        ? \Carbon\Carbon::parse($meeting->end_time)
-                            ->setTimezone('Asia/Jakarta')
+                        ? \Carbon\Carbon::parse($meeting->getRawOriginal('end_time'), 'Asia/Jakarta')
                             ->toIso8601String()
                         : null,
                     'status' => $meeting->status,
