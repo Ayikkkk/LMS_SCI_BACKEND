@@ -16,7 +16,27 @@ class MeetingController extends Controller
         $meetings = OnlineMeeting::where('classroom_id', $student->classroom_id)
             ->whereIn('status', ['upcoming', 'live'])
             ->orderBy('start_time', 'asc')
-            ->get();
+            ->get()
+            ->map(function ($meeting) {
+                return [
+                    'id'           => $meeting->id,
+                    'classroom_id' => $meeting->classroom_id,
+                    'title'        => $meeting->title,
+                    'description'  => $meeting->description,
+                    'meeting_code' => $meeting->meeting_code,
+                    'start_time'   => $meeting->start_time
+                        ? \Carbon\Carbon::parse($meeting->start_time)
+                            ->setTimezone('Asia/Jakarta')
+                            ->toIso8601String()
+                        : null,
+                    'end_time'     => $meeting->end_time
+                        ? \Carbon\Carbon::parse($meeting->end_time)
+                            ->setTimezone('Asia/Jakarta')
+                            ->toIso8601String()
+                        : null,
+                    'status'       => $meeting->status,
+                ];
+            });
 
         return response()->json([
             'success' => true,
