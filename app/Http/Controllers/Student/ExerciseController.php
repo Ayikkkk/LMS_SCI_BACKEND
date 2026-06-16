@@ -501,6 +501,14 @@ class ExerciseController extends Controller
         $student = strtolower(trim(str_replace('option_', '', $studentAnswer)));
         $correct = $this->normalizeAnswer($correctAnswer);
 
+        Log::debug('[Quiz] checkSingleAnswer', [
+            'student_raw'  => $studentAnswer,
+            'correct_raw'  => $correctAnswer,
+            'student_norm' => $student,
+            'correct_norm' => $correct,
+            'match'        => $student === $correct,
+        ]);
+
         return $student === $correct ? 1 : 0;
     }
 
