@@ -248,31 +248,31 @@ class ExerciseController extends Controller
             return [];
         }
 
-        $options = [];
+        $trimmed = trim($selection);
 
-        if (str_starts_with(trim($selection), '[') || str_starts_with(trim($selection), '{')) {
-            try {
-                $decoded = json_decode($selection, true);
-                if (is_array($decoded)) {
-                    // Kembalikan HTML asli tanpa strip_tags
-                    return array_values($decoded);
-                }
-            } catch (\Exception $e) {
-                // Continue to manual parsing
+        // Coba json_decode langsung
+        if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
+            $decoded = json_decode($trimmed, true);
+            if (is_array($decoded) && !empty($decoded)) {
+                return array_values($decoded);
+            }
+
+            // Jika json_decode gagal, coba unescape dulu (double-encoded)
+            $unescaped = stripcslashes($trimmed);
+            $decoded2  = json_decode($unescaped, true);
+            if (is_array($decoded2) && !empty($decoded2)) {
+                return array_values($decoded2);
             }
         }
 
-        if (strpos($selection, "\n") !== false) {
-            $options = array_map('trim', explode("\n", $selection));
+        // Fallback: split per newline atau koma
+        if (strpos($trimmed, "\n") !== false) {
+            $options = array_map('trim', explode("\n", $trimmed));
         } else {
-            $options = array_map('trim', explode(',', $selection));
+            $options = array_map('trim', explode(',', $trimmed));
         }
 
-        $options = array_filter($options, function ($opt) {
-            return !empty(trim($opt));
-        });
-
-        return array_values($options);
+        return array_values(array_filter($options, fn($opt) => !empty(trim($opt))));
     }
 
     //  Map exercise_model_id ke tipe Flutter
