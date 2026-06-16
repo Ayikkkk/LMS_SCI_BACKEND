@@ -305,7 +305,11 @@ class ExerciseController extends Controller
 
     /**
      * Normalisasi jawaban dari DB ke huruf kecil tunggal atau array huruf kecil.
-     * Contoh: "B" → "b", '["B"]' → "b", '["A","C"]' → "a,c"
+     * Menangani berbagai format:
+     *   "B"          → "b"
+     *   '["B"]'      → "b"
+     *   '"[\"B\"]"'  → "b"   (outer-quoted JSON string, triple-encoded)
+     *   '["A","C"]'  → "a,c"
      */
     private function normalizeAnswer(?string $raw): string
     {
@@ -313,21 +317,34 @@ class ExerciseController extends Controller
 
         $trimmed = trim($raw);
 
-        // Jika JSON array: ["B"] atau ["A","C"]
+        // Langkah 1: jika dibungkus outer double-quote (triple-encoded),
+        // decode outer string dulu → hasilnya string seperti '["B"]'
+        if (str_starts_with($trimmed, '"') && str_ends_with($trimmed, '"')) {
+            $outer = json_decode($trimmed, true);
+            if (is_string($outer)) {
+                $trimmed = trim($outer);
+            }
+        }
+
+        // Langkah 2: jika JSON array
         if (str_starts_with($trimmed, '[')) {
             $decoded = json_decode($trimmed, true);
+
+            // Jika gagal, coba stripcslashes dulu
+            if (!is_array($decoded)) {
+                $decoded = json_decode(stripcslashes($trimmed), true);
+            }
+
             if (is_array($decoded)) {
-                // Strip HTML tags, lowercase, hapus spasi
                 $letters = array_map(function ($v) {
                     return strtolower(trim(strip_tags($v)));
                 }, $decoded);
-                // Sort agar perbandingan konsisten
                 sort($letters);
                 return implode(',', $letters);
             }
         }
 
-        // Plain string: "B" atau "b"
+        // Langkah 3: plain string "B" atau "b"
         return strtolower(strip_tags(trim($trimmed)));
     }
 
@@ -500,14 +517,6 @@ class ExerciseController extends Controller
         // Normalisasi kedua sisi: lowercase, strip HTML, decode JSON array
         $student = strtolower(trim(str_replace('option_', '', $studentAnswer)));
         $correct = $this->normalizeAnswer($correctAnswer);
-
-        Log::debug('[Quiz] checkSingleAnswer', [
-            'student_raw'  => $studentAnswer,
-            'correct_raw'  => $correctAnswer,
-            'student_norm' => $student,
-            'correct_norm' => $correct,
-            'match'        => $student === $correct,
-        ]);
 
         return $student === $correct ? 1 : 0;
     }
