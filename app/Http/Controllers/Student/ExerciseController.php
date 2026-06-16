@@ -190,7 +190,8 @@ class ExerciseController extends Controller
         }
 
         /** @var Exercise $exercise */
-        // Format items dengan tipe soal yang benar, lalu acak urutan
+        // Format items dengan tipe soal yang benar, lalu acak urutan SOAL
+        // (urutan OPSI tidak diacak agar jawaban a/b/c/d tetap konsisten dengan DB)
         $formattedItems = $exercise->items->map(function ($item) {
             // Kirim HTML asli untuk mendukung gambar, kemudian teks bersih sebagai fallback
             $questionHtml = $item->question ?? '';
@@ -199,12 +200,16 @@ class ExerciseController extends Controller
             $options     = $this->parseOptions($item->selection, $item->exercise_model_id);
             $optionsHtml = $this->parseOptionsHtml($item->selection, $item->exercise_model_id);
 
+            // Normalisasi jawaban benar: decode JSON array jika perlu, hasilkan huruf kecil
+            $correctAnswer = $this->normalizeAnswer($item->answer);
+
             return [
                 'id'               => $item->id,
                 'question'         => $questionText,
                 'question_html'    => $questionHtml,
                 'options'          => $options,
-                'options_html'     => $optionsHtml, // opsi dengan HTML asli
+                'options_html'     => $optionsHtml,
+                'correct_answer'   => $correctAnswer, // huruf kecil: a/b/c/d
                 'type'             => $this->mapModelIdToType($item->exercise_model_id),
                 'is_multiple'      => $item->exercise_model_id == 2,
                 'allow_multiple'   => $item->exercise_model_id == 2,
@@ -213,7 +218,7 @@ class ExerciseController extends Controller
                 'exercise_choice'  => $item->exercise_choice,
             ];
         })
-            ->shuffle() // acak urutan soal setiap request
+            ->shuffle() // acak urutan SOAL saja
             ->values();
 
         return response()->json([
@@ -273,6 +278,34 @@ class ExerciseController extends Controller
         }
 
         return array_values(array_filter($options, fn($opt) => !empty(trim($opt))));
+    }
+
+    /**
+     * Normalisasi jawaban dari DB ke huruf kecil tunggal atau array huruf kecil.
+     * Contoh: "B" → "b", '["B"]' → "b", '["A","C"]' → "a,c"
+     */
+    private function normalizeAnswer(?string $raw): string
+    {
+        if (empty($raw)) return '';
+
+        $trimmed = trim($raw);
+
+        // Jika JSON array: ["B"] atau ["A","C"]
+        if (str_starts_with($trimmed, '[')) {
+            $decoded = json_decode($trimmed, true);
+            if (is_array($decoded)) {
+                // Strip HTML tags, lowercase, hapus spasi
+                $letters = array_map(function ($v) {
+                    return strtolower(trim(strip_tags($v)));
+                }, $decoded);
+                // Sort agar perbandingan konsisten
+                sort($letters);
+                return implode(',', $letters);
+            }
+        }
+
+        // Plain string: "B" atau "b"
+        return strtolower(strip_tags(trim($trimmed)));
     }
 
     //  Map exercise_model_id ke tipe Flutter
@@ -441,43 +474,27 @@ class ExerciseController extends Controller
 
     private function checkSingleAnswer($studentAnswer, $correctAnswer)
     {
-        $studentAnswer = strtolower(trim($studentAnswer));
-        $correctAnswer = strtolower(trim($correctAnswer));
+        // Normalisasi kedua sisi: lowercase, strip HTML, decode JSON array
+        $student = strtolower(trim(str_replace('option_', '', $studentAnswer)));
+        $correct = $this->normalizeAnswer($correctAnswer);
 
-        $correctAnswer = str_replace('option_', '', $correctAnswer);
-        $studentAnswer = str_replace('option_', '', $studentAnswer);
-
-        if (str_starts_with($correctAnswer, '[')) {
-            try {
-                $parsed = json_decode($correctAnswer, true);
-                if (is_array($parsed) && count($parsed) > 0) {
-                    $correctAnswer = strtolower(trim($parsed[0]));
-                }
-            } catch (\Exception $e) {
-                // ignore
-            }
-        }
-
-        return $studentAnswer === $correctAnswer ? 1 : 0;
+        return $student === $correct ? 1 : 0;
     }
 
     private function checkMultipleAnswer($studentAnswer, $correctAnswer)
     {
-        $studentAnswers = array_map('trim', explode(',', strtolower($studentAnswer)));
-        $correctAnswers = array_map('trim', explode(',', strtolower($correctAnswer)));
+        // studentAnswer: "a,c" atau "option_a,option_c"
+        $studentLetters = array_map(function ($s) {
+            return strtolower(trim(str_replace('option_', '', $s)));
+        }, explode(',', $studentAnswer));
+        sort($studentLetters);
 
-        $studentAnswers = array_map(function ($ans) {
-            return str_replace('option_', '', $ans);
-        }, $studentAnswers);
+        // correctAnswer: '["A","C"]' atau "a,c"
+        $correctNorm = $this->normalizeAnswer($correctAnswer);
+        $correctLetters = array_map('trim', explode(',', $correctNorm));
+        sort($correctLetters);
 
-        $correctAnswers = array_map(function ($ans) {
-            return str_replace('option_', '', $ans);
-        }, $correctAnswers);
-
-        sort($studentAnswers);
-        sort($correctAnswers);
-
-        return $studentAnswers === $correctAnswers ? 1 : 0;
+        return $studentLetters === $correctLetters ? 1 : 0;
     }
 
     private function checkTextAnswer($studentAnswer, $correctAnswer)
