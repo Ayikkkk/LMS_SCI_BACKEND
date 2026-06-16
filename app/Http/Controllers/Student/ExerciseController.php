@@ -255,18 +255,41 @@ class ExerciseController extends Controller
 
         $trimmed = trim($selection);
 
-        // Coba json_decode langsung
+        // Coba json_decode langsung (handles: ["<p>Es</p>",...] dan ["<p>Es<\/p>",...])
         if (str_starts_with($trimmed, '[') || str_starts_with($trimmed, '{')) {
             $decoded = json_decode($trimmed, true);
             if (is_array($decoded) && !empty($decoded)) {
                 return array_values($decoded);
             }
 
-            // Jika json_decode gagal, coba unescape dulu (double-encoded)
+            // Fallback 1: stripcslashes untuk double-escape [\"] → ["
             $unescaped = stripcslashes($trimmed);
             $decoded2  = json_decode($unescaped, true);
             if (is_array($decoded2) && !empty($decoded2)) {
                 return array_values($decoded2);
+            }
+
+            // Fallback 2: ganti \" → " manual lalu decode
+            $replaced = str_replace('\\"', '"', $trimmed);
+            $decoded3  = json_decode($replaced, true);
+            if (is_array($decoded3) && !empty($decoded3)) {
+                return array_values($decoded3);
+            }
+        }
+
+        // Fallback 3: mungkin selection tersimpan sebagai JSON string (outer-encoded)
+        // Contoh: '"[\"<p>Es<\\/p>\",...]"' → decode outer dulu
+        if (str_starts_with($trimmed, '"') && str_ends_with($trimmed, '"')) {
+            $outerDecoded = json_decode($trimmed, true);
+            if (is_string($outerDecoded)) {
+                $inner = json_decode($outerDecoded, true);
+                if (is_array($inner) && !empty($inner)) {
+                    return array_values($inner);
+                }
+                $inner2 = json_decode(stripcslashes($outerDecoded), true);
+                if (is_array($inner2) && !empty($inner2)) {
+                    return array_values($inner2);
+                }
             }
         }
 
