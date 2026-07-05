@@ -55,11 +55,10 @@ class Student extends Authenticatable
 
     /**
      * Attribute tambahan yang akan otomatis ditambahkan ke array/json output
-     * (mis. $student->photo_url)
+     * DINONAKTIFKAN — photo_url dibangun manual di controller agar tidak
+     * memperlambat setiap query yang load model Student
      */
-    protected $appends = [
-        'photo_url',
-    ];
+    // protected $appends = ['photo_url'];
 
     /**
      * RELATIONS

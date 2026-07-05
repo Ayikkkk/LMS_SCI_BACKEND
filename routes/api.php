@@ -157,7 +157,7 @@ Route::prefix('student')->group(function () {
 // =======================
 // PUBLIC IMAGE PROXY
 // Download gambar dari domain eksternal (backend guru) menggunakan cURL
-// cURL mendukung TLS lebih baik dari file_get_contents
+// Response di-cache 24 jam agar tidak fetch ulang gambar yang sama
 // =======================
 Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
     $url = $request->query('url');
@@ -181,18 +181,29 @@ Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
         abort(403, 'Domain not allowed');
     }
 
+    // Cache key berdasarkan URL — hindari fetch ulang gambar yang sama
+    $cacheKey = 'proxy_img_' . md5($url);
+    $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+    if ($cached) {
+        return response($cached['data'], 200, [
+            'Content-Type'                => $cached['mime'],
+            'Cache-Control'               => 'public, max-age=86400',
+            'Access-Control-Allow-Origin' => '*',
+            'X-Cache'                     => 'HIT',
+        ]);
+    }
+
     // Gunakan cURL agar TLS support lebih baik
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_SSL_VERIFYPEER => false,  // bypass SSL verify
+        CURLOPT_SSL_VERIFYPEER => false,
         CURLOPT_SSL_VERIFYHOST => false,
         CURLOPT_TIMEOUT        => 15,
         CURLOPT_CONNECTTIMEOUT => 10,
         CURLOPT_USERAGENT      => 'Mozilla/5.0 (Linux; Android 13)',
         CURLOPT_HTTPHEADER     => ['Accept: image/*'],
-        // TLS options untuk kompatibilitas
         CURLOPT_SSLVERSION     => CURL_SSLVERSION_TLSv1_2,
     ]);
 
@@ -203,7 +214,7 @@ Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
     curl_close($ch);
 
     if ($imageData === false || !empty($curlError)) {
-        Log::error('Proxy image cURL error: ' . $curlError . ' URL: ' . $url);
+        \Illuminate\Support\Facades\Log::error('Proxy image cURL error: ' . $curlError . ' URL: ' . $url);
         abort(502, 'Failed to fetch image: ' . $curlError);
     }
 
@@ -211,13 +222,19 @@ Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
         abort($httpCode ?: 502, 'Upstream returned ' . $httpCode);
     }
 
-    // Hapus parameter Content-Type yang mungkin mengandung charset
     $mimeType = explode(';', $mimeType)[0];
+
+    // Simpan ke cache 24 jam — gambar soal jarang berubah
+    \Illuminate\Support\Facades\Cache::put($cacheKey, [
+        'data' => $imageData,
+        'mime' => trim($mimeType) ?: 'image/jpeg',
+    ], 86400);
 
     return response($imageData, 200, [
         'Content-Type'                => trim($mimeType) ?: 'image/jpeg',
         'Cache-Control'               => 'public, max-age=86400',
         'Access-Control-Allow-Origin' => '*',
+        'X-Cache'                     => 'MISS',
     ]);
 });
 Route::get('/files/{path}', function (string $path) {

@@ -230,42 +230,13 @@ class PostController extends Controller
         }
 
         if (!$filePath) {
-            Log::warning('File not found locally, redirecting to guru domain', [
-                'post_id'    => $id,
-                'attachment' => $attachment,
-            ]);
-
-            // Redirect langsung ke domain guru — lebih efisien dari proxy
+            // File tidak ada lokal — redirect langsung ke domain guru tanpa HEAD check
+            // HEAD check sebelumnya memblokir FPM worker 5-10 detik per request
             $guruDomain = 'http://guru.tak-scimediaonline.my.id';
             $encodedAttachment = implode('/', array_map('rawurlencode', explode('/', $attachment)));
             $guruUrl = $guruDomain . '/storage/' . $encodedAttachment;
 
-            // Cek apakah URL domain guru bisa diakses
-            $ch = curl_init($guruUrl);
-            curl_setopt_array($ch, [
-                CURLOPT_NOBODY         => true, // HEAD request saja
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_TIMEOUT        => 10,
-                CURLOPT_CONNECTTIMEOUT => 5,
-            ]);
-            curl_exec($ch);
-            $httpCode  = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $finalUrl  = curl_getinfo($ch, CURLINFO_EFFECTIVE_URL);
-            curl_close($ch);
-
-            if ($httpCode === 200) {
-                // File tersedia di domain guru — redirect langsung
-                return redirect()->away($finalUrl ?: $guruUrl);
-            }
-
-            Log::warning('Guru domain also returned ' . $httpCode . ' for: ' . $guruUrl);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'File tidak dapat diakses. Hubungi guru untuk memastikan file telah diupload.',
-            ], 404);
+            return redirect()->away($guruUrl);
         }
 
         $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
