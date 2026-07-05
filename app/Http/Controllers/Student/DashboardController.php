@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Student;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -42,28 +43,33 @@ class DashboardController extends Controller
         $student = $request->user();
 
         // ===============================
-        // STATISTIK
+        // STATISTIK — cache 5 menit per siswa
+        // Mengurangi 6 query menjadi 1 cache read saat banyak user bersamaan
         // ===============================
+        $stats = Cache::remember("dashboard_stats_{$student->id}", 300, function () use ($student) {
+            return [
+                'total_tasks' => Post::where('is_task', 1)
+                    ->where('serial_id', $student->serial_id)
+                    ->where(function ($q) use ($student) {
+                        $q->whereNull('classroom_id')
+                          ->orWhere('classroom_id', $student->classroom_id);
+                    })
+                    ->count(),
 
-        $totalTasks = Post::where('is_task', 1)
-            ->where('serial_id', $student->serial_id)
-            ->where(function ($q) use ($student) {
-                $q->whereNull('classroom_id')
-                  ->orWhere('classroom_id', $student->classroom_id);
-            })
-            ->count();
+                'total_materials' => Post::where('is_task', 0)
+                    ->where('serial_id', $student->serial_id)
+                    ->where(function ($q) use ($student) {
+                        $q->whereNull('classroom_id')
+                          ->orWhere('classroom_id', $student->classroom_id);
+                    })
+                    ->count(),
 
-        $totalMaterials = Post::where('is_task', 0)
-            ->where('serial_id', $student->serial_id)
-            ->where(function ($q) use ($student) {
-                $q->whereNull('classroom_id')
-                  ->orWhere('classroom_id', $student->classroom_id);
-            })
-            ->count();
-        $totalExercises = ExercisePoint::where('student_id', $student->id)->count();
-        $avgTask = Task::where('student_id', $student->id)->avg('point') ?? 0;
-        $avgExercise = ExercisePoint::where('student_id', $student->id)->avg('exercise_point') ?? 0;
-        $reportCount = Report::where('student_id', $student->id)->count();
+                'total_exercises'        => ExercisePoint::where('student_id', $student->id)->count(),
+                'average_task_score'     => round(Task::where('student_id', $student->id)->avg('point') ?? 0, 2),
+                'average_exercise_score' => round(ExercisePoint::where('student_id', $student->id)->avg('exercise_point') ?? 0, 2),
+                'report_count'           => Report::where('student_id', $student->id)->count(),
+            ];
+        });
 
         // ===============================
         // MEETINGS HARI INI
@@ -74,37 +80,24 @@ class DashboardController extends Controller
             ->where('classroom_id', $student->classroom_id)
             ->whereBetween('start_time', [$todayStart, $todayEnd])
             ->orderBy('start_time', 'asc')
-            ->get([
-                'id',
-                'title',
-                'start_time',
-                'end_time',
-                'status'
-            ])
+            ->get(['id', 'title', 'start_time', 'end_time', 'status'])
             ->map(function ($meeting) {
                 $now = now();
-
                 $start = $meeting->start_time ? \Carbon\Carbon::parse($meeting->start_time) : null;
                 $end   = $meeting->end_time ? \Carbon\Carbon::parse($meeting->end_time) : null;
 
                 return [
-                    'id' => $meeting->id,
-                    'title' => $meeting->title,
-                    'platform' => 'Jitsi Meet',
-                    // Kirim sebagai ISO 8601 dengan timezone WIB eksplisit
-                    // getRawOriginal() ambil nilai DB as-is (WIB), lalu parse dengan timezone WIB
-                    'start_time' => $meeting->start_time
-                        ? \Carbon\Carbon::parse($meeting->getRawOriginal('start_time'), 'Asia/Jakarta')
-                            ->toIso8601String()
+                    'id'          => $meeting->id,
+                    'title'       => $meeting->title,
+                    'platform'    => 'Jitsi Meet',
+                    'start_time'  => $meeting->start_time
+                        ? \Carbon\Carbon::parse($meeting->getRawOriginal('start_time'), 'Asia/Jakarta')->toIso8601String()
                         : null,
-                    'end_time' => $meeting->end_time
-                        ? \Carbon\Carbon::parse($meeting->getRawOriginal('end_time'), 'Asia/Jakarta')
-                            ->toIso8601String()
+                    'end_time'    => $meeting->end_time
+                        ? \Carbon\Carbon::parse($meeting->getRawOriginal('end_time'), 'Asia/Jakarta')->toIso8601String()
                         : null,
-                    'status' => $meeting->status,
-
-                    //  SAFE CHECK
-                    'is_live' => $start && $end ? $now->between($start, $end) : false,
+                    'status'      => $meeting->status,
+                    'is_live'     => $start && $end ? $now->between($start, $end) : false,
                     'is_upcoming' => $start ? $start->gt($now) : false,
                 ];
             });
@@ -112,7 +105,6 @@ class DashboardController extends Controller
         // ===============================
         // PENDING TASKS (Belum dikerjakan)
         // ===============================
-
         $pendingTasks = DB::table('posts')
             ->leftJoin('tasks', function ($join) use ($student) {
                 $join->on('posts.id', '=', 'tasks.post_id')
@@ -130,20 +122,15 @@ class DashboardController extends Controller
                 $q->whereNull('posts.due_date')
                   ->orWhereDate('posts.due_date', '>=', now());
             })
-            ->select(
-                'posts.id',
-                'posts.title',
-                'posts.due_date',
-                'mapels.name as subject_name'
-            )
+            ->select('posts.id', 'posts.title', 'posts.due_date', 'mapels.name as subject_name')
             ->orderByRaw('CASE WHEN posts.due_date IS NULL THEN 1 ELSE 0 END')
             ->orderBy('posts.due_date', 'asc')
+            ->limit(20) // batasi 20 tugas pending untuk performa
             ->get();
 
         // ===============================
         // RESPONSE
         // ===============================
-
         return response()->json([
             'success' => true,
             'data' => [
@@ -155,17 +142,9 @@ class DashboardController extends Controller
                     'className' => optional($student->classroom)->name,
                     'photo'     => $this->buildPhotoUrl($student->photo, $request),
                 ],
-                'stats' => [
-                    'total_tasks'            => $totalTasks,
-                    'total_materials'        => $totalMaterials,
-                    'total_exercises'        => $totalExercises,
-                    'average_task_score'     => round($avgTask, 2),
-                    'average_exercise_score' => round($avgExercise, 2),
-                    'report_count'           => $reportCount,
-                ],
+                'stats'          => $stats,
                 'meetings_today' => $meetingsToday,
-                // ⬇️ kirim tugas yang belum selesai
-                'pending_tasks' => $pendingTasks,
+                'pending_tasks'  => $pendingTasks,
             ],
         ]);
     }

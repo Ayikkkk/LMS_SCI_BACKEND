@@ -3,26 +3,24 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Auth\AuthenticationException;
+use Illuminate\Console\Scheduling\Schedule;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
-
+        // Scheduled jobs — jalankan via: php artisan schedule:run (cron setiap menit)
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            // Bersihkan quiz activity logs lebih dari 30 hari — setiap hari jam 02:00 WIB
+            $schedule->command('quiz:clean-logs')
+                ->dailyAt('02:00')
+                ->runInBackground()
+                ->withoutOverlapping();
+        });
     }
 }

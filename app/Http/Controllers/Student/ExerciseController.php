@@ -624,21 +624,18 @@ class ExerciseController extends Controller
             }
 
             DB::connection('mysql_log')->table('quiz_activity_logs')->insert([
-                'student_id'      => $student->id,
-                'exercise_id'     => $validated['exercise_id'],
-                'event_type'      => $validated['event_type'],
+                'student_id'       => $student->id,
+                'exercise_id'      => $validated['exercise_id'],
+                'event_type'       => $validated['event_type'],
                 'duration_seconds' => $validated['duration_seconds'] ?? null,
-                'suspicious_flag' => $validated['suspicious_flag'] ?? false,
-                'device_info'     => $validated['device_info'] ?? null,
-                'ip_address'      => $request->ip(),
-                'created_at'      => now(),
+                'suspicious_flag'  => $validated['suspicious_flag'] ?? false,
+                'device_info'      => $validated['device_info'] ?? null,
+                'ip_address'       => $request->ip(),
+                'created_at'       => now(),
             ]);
 
-            // Hapus log lama — simpan hanya 30 hari terakhir per student
-            DB::connection('mysql_log')->table('quiz_activity_logs')
-                ->where('student_id', $student->id)
-                ->where('created_at', '<', now()->subDays(30))
-                ->delete();
+            // DELETE log lama TIDAK dijalankan di sini — dipindah ke scheduled job
+            // agar tidak membebani setiap request saat banyak siswa mengerjakan kuis bersamaan
 
             return response()->json([
                 'success' => true,
