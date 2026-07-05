@@ -11,6 +11,7 @@ use App\Models\Post;
 use App\Models\Exercise;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class GradeController extends Controller
 {
@@ -25,6 +26,14 @@ class GradeController extends Controller
                 'success' => false,
                 'message' => 'Siswa belum terdaftar di kelas'
             ], 422);
+        }
+
+        // Cache rekap nilai per siswa selama 10 menit
+        // Nilai jarang berubah, tidak perlu query ulang setiap request
+        $cacheKey = "recap_nilai_{$student->id}";
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return response()->json($cached);
         }
 
         /**
@@ -144,7 +153,7 @@ class GradeController extends Controller
             }
         }
 
-        return response()->json([
+        $result = [
             'success' => true,
             'student' => [
                 'nis'   => $student->nis,
@@ -152,7 +161,12 @@ class GradeController extends Controller
                 'kelas' => $classroom->name
             ],
             'rows' => $rows
-        ]);
+        ];
+
+        // Simpan ke cache 10 menit
+        Cache::put($cacheKey, $result, 600);
+
+        return response()->json($result);
     }
 
     public function downloadRecapPdf(Request $request)
