@@ -11,10 +11,16 @@ class PostCommentController extends Controller
 {
     public function index(Post $post)
     {
-        $comments = PostComment::with(['student', 'user', 'replies.student', 'replies.user'])
+        // Batasi kolom yang di-select agar tidak load semua field
+        $comments = PostComment::with([
+                'student:id,name,photo',
+                'user:id,name,img',
+                'replies.student:id,name,photo',
+                'replies.user:id,name,img',
+            ])
             ->where('post_id', $post->id)
             ->orderBy('created_at', 'ASC')
-            ->get();
+            ->get(['id', 'post_id', 'student_id', 'user_id', 'message', 'code', 'created_at', 'updated_at']);
 
         return response()->json([
             'success'  => true,

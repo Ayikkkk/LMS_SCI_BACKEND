@@ -20,18 +20,18 @@ class TaskController extends Controller
         $tasks = Task::where('student_id', $student->id)
             ->with('post:id,title,due_date,mapel_id')
             ->orderBy('id', 'desc')
+            ->limit(100) // batasi 100 task — cukup untuk satu semester
             ->get()
             ->map(function ($task) {
                 return [
-                    'id' => $task->id,
-                    'post_id' => $task->post_id,
+                    'id'               => $task->id,
+                    'post_id'          => $task->post_id,
                     'assignment_title' => optional($task->post)->title,
-                    'description' => $task->description,
-                    'attachment' => $task->attachment,
-                    'submitted_at' => $task->created_at->format('Y-m-d H:i:s'),
-                    // Tambahkan baris di bawah ini
-                    'point' => $task->point ?? 0,
-                    'status' => $task->point > 0 ? 'Sudah Dinilai' : 'Sudah Dikerjakan',
+                    'description'      => $task->description,
+                    'attachment'       => $task->attachment,
+                    'submitted_at'     => $task->created_at->format('Y-m-d H:i:s'),
+                    'point'            => $task->point ?? 0,
+                    'status'           => $task->point > 0 ? 'Sudah Dinilai' : 'Sudah Dikerjakan',
                 ];
             });
 
