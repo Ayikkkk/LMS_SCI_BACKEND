@@ -97,9 +97,11 @@ Route::prefix('student')->group(function () {
         Route::get('/lesson/{lessonId}/exercises', [ExerciseController::class, 'exercisesByLesson']);
         Route::get('/exercises', [ExerciseController::class, 'index_old']);
         Route::get('/exercises/{id}', [ExerciseController::class, 'show']);
-        Route::post('/exercises/{id}/submit', [ExerciseController::class, 'submit']);
+        // Submit kuis: max 5x per menit (cegah double submit)
+        Route::post('/exercises/{id}/submit', [ExerciseController::class, 'submit'])->middleware('throttle:5,1');
         Route::get('/exercises/{id}/result', [ExerciseController::class, 'result']);
-        Route::post('/quiz/log', [ExerciseController::class, 'logActivity']);
+        // Quiz log: max 60x per menit per user (1 log/detik sudah lebih dari cukup)
+        Route::post('/quiz/log', [ExerciseController::class, 'logActivity'])->middleware('throttle:60,1');
 
         /**
          * --------------------------
