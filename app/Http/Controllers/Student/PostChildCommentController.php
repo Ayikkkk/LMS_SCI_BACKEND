@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\PostChildComment;
 use App\Models\PostComment;
-use Illuminate\Support\Facades\Auth;
 
 class PostChildCommentController extends Controller
 {
@@ -14,24 +13,16 @@ class PostChildCommentController extends Controller
     {
         $request->validate(['message' => 'required']);
 
-        // Ambil student berdasarkan token (sama seperti komentar utama)
-        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
-
-        if (!$student) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Hanya siswa yang dapat membalas komentar.'
-            ], 403);
-        }
+        // Gunakan $request->user() — tidak perlu query DB tambahan
+        $student = $request->user();
 
         $reply = PostChildComment::create([
             'post_comment_id' => $comment->id,
-            'student_id' => $student->id,
-            'message' => $request->message,
-            'is_user' => 0
+            'student_id'      => $student->id,
+            'message'         => $request->message,
+            'is_user'         => 0
         ]);
 
-        // 🔥 load relasi baru agar UI bisa langsung akses student & user
         $reply->load(['student', 'user']);
 
         return response()->json([
@@ -40,62 +31,37 @@ class PostChildCommentController extends Controller
         ], 201);
     }
 
-    public function destroy(PostChildComment $reply)
+    public function destroy(Request $request, PostChildComment $reply)
     {
-        // Ambil student login dari token
-        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
+        $student = $request->user();
 
-        if (!$student || $reply->student_id !== $student->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak diizinkan'
-            ], 403);
+        if ($reply->student_id !== $student->id) {
+            return response()->json(['success' => false, 'message' => 'Tidak diizinkan'], 403);
         }
 
         $reply->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Balasan dihapus'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Balasan dihapus']);
     }
 
     public function update(Request $request, PostChildComment $reply)
     {
-        $request->validate([
-            'message' => 'required'
-        ]);
+        $request->validate(['message' => 'required']);
 
-        // Ambil student berdasarkan token
-        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
+        $student = $request->user();
 
-        if (!$student) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Autentikasi siswa gagal'
-            ], 403);
-        }
-
-        // Cek kepemilikan
         if ($reply->student_id != $student->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak diizinkan'
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Tidak diizinkan'], 403);
         }
 
-        // Update Message
-        $reply->update([
-            'message' => $request->message
-        ]);
+        $reply->update(['message' => $request->message]);
 
-        // Reload relasi supaya langsung update tampilan UI
         $reply->load(['student:id,name,photo', 'user:id,name,img']);
 
         return response()->json([
             'success' => true,
             'message' => 'Balasan diperbarui',
-            'data' => $reply
+            'data'    => $reply
         ]);
     }
 }

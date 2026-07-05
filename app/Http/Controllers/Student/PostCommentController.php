@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\PostComment;
 use App\Models\Post;
-use Illuminate\Support\Facades\Auth;
 
 class PostCommentController extends Controller
 {
@@ -18,7 +17,7 @@ class PostCommentController extends Controller
             ->get();
 
         return response()->json([
-            'success' => true,
+            'success'  => true,
             'comments' => $comments
         ]);
     }
@@ -27,21 +26,15 @@ class PostCommentController extends Controller
     {
         $request->validate(['message' => 'required']);
 
-        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
-
-        if (!$student) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Siswa tidak ditemukan'
-            ], 403);
-        }
+        // Gunakan $request->user() langsung — tidak perlu query DB lagi
+        $student = $request->user();
 
         $comment = PostComment::create([
-            'post_id' => $post->id,
+            'post_id'    => $post->id,
             'student_id' => $student->id,
-            'message' => $request->message,
-            'code' => uniqid('CMT'),
-            'is_user' => 0
+            'message'    => $request->message,
+            'code'       => uniqid('CMT'),
+            'is_user'    => 0
         ]);
 
         $comment->load([
@@ -57,58 +50,30 @@ class PostCommentController extends Controller
         ], 201);
     }
 
-    public function destroy(PostComment $comment)
+    public function destroy(Request $request, PostComment $comment)
     {
-        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
-
-        if (!$student) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Autentikasi siswa gagal'
-            ], 403);
-        }
+        $student = $request->user();
 
         if ($comment->student_id != $student->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak diizinkan'
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Tidak diizinkan'], 403);
         }
 
         $comment->delete();
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Komentar dihapus'
-        ]);
+        return response()->json(['success' => true, 'message' => 'Komentar dihapus']);
     }
 
     public function update(Request $request, PostComment $comment)
     {
         $request->validate(['message' => 'required']);
 
-        // Ambil student berdasarkan token yang sedang login
-        $student = \App\Models\Student::where('username', Auth::user()->username)->first();
+        $student = $request->user();
 
-        if (!$student) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Autentikasi siswa gagal'
-            ], 403);
-        }
-
-        // Pastikan hanya pemilik yang boleh edit
         if ($comment->student_id != $student->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak diizinkan'
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Tidak diizinkan'], 403);
         }
 
-        // Update komentar
-        $comment->update([
-            'message' => $request->message
-        ]);
+        $comment->update(['message' => $request->message]);
 
         $comment->load([
             'student:id,name,photo',
@@ -120,7 +85,7 @@ class PostCommentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Komentar berhasil diperbarui',
-            'data' => $comment
+            'data'    => $comment
         ]);
     }
 }
