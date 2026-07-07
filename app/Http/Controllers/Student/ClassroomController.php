@@ -8,23 +8,67 @@ use Illuminate\Http\Request;
 
 class ClassroomController extends Controller
 {
+    /**
+     * Daftar kelas milik siswa yang login.
+     * Siswa hanya bisa melihat kelas yang memang dia ikuti.
+     */
     public function index(Request $request)
     {
         $student = $request->user();
-        $classrooms = Classroom::where('id', $student->classroom_id)->get();
+
+        // Hanya classroom yang diikuti siswa — bukan semua classroom
+        $classrooms = Classroom::where('id', $student->classroom_id)
+            ->get(['id', 'name', 'grade', 'code']);
 
         return response()->json([
+            'success'    => true,
             'classrooms' => $classrooms
         ]);
     }
 
-    public function show($id)
+    /**
+     * Detail kelas — IDOR fix: wajib cocok dengan classroom_id siswa.
+     * Siswa tidak bisa mengakses data kelas lain dengan menebak ID.
+     *
+     * Field sensitif tidak di-expose:
+     * - students: hanya id, name, absen_number (bukan email, phone, password, photo)
+     * - teacher: hanya id, name (bukan email, token)
+     */
+    public function show(Request $request, $id)
     {
-        $classroom = Classroom::with('students', 'teacher')
-            ->where('id', $id)
+        $student = $request->user();
+
+        // Authorization: id harus sama dengan classroom_id siswa
+        if ((int) $id !== (int) $student->classroom_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses ke kelas ini.'
+            ], 403);
+        }
+
+        $classroom = Classroom::where('id', $id)
+            ->with([
+                // Batasi kolom siswa — hanya yang dibutuhkan untuk tampil di UI
+                // Jangan expose: email, phone, password, photo, token
+                'students:id,classroom_id,name,absen_number,nis',
+
+                // Guru: hanya id dan nama — teacher() via user_id
+                // Catatan: relasi ini return null jika kolom user_id tidak ada di tabel classrooms
+                'teacher:id,name',
+            ])
+            ->select(['id', 'name', 'grade', 'code', 'serial_id'])
             ->first();
 
-        return response()->json($classroom);
+        if (!$classroom) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kelas tidak ditemukan.'
+            ], 404);
+        }
+
+        return response()->json([
+            'success'   => true,
+            'classroom' => $classroom
+        ]);
     }
 }
-
