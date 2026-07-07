@@ -403,7 +403,10 @@ class ExerciseController extends Controller
     {
         $student = $request->user();
 
-        // Cegah pengerjaan ulang
+        // ============================================================
+        // CEK AWAL — sudah pernah submit sebelumnya (quick check, bukan atomik)
+        // Race condition masih mungkin di sini, tapi ditangani di DB constraint di bawah
+        // ============================================================
         $existing = ExercisePoint::where('exercise_id', $id)
             ->where('student_id', $student->id)
             ->first();
@@ -424,7 +427,9 @@ class ExerciseController extends Controller
         ]);
 
         $answers = $validated['answers'] ?? [];
-        $localScore = $request->input('local_score');
+
+        // HAPUS: jangan terima local_score dari client — backend hitung sendiri
+        // $localScore = $request->input('local_score'); ← dihapus karena security risk
 
         //  AMBIL INFO EXERCISE TYPE
         $exercise = Exercise::with('exerciseType')->find($id);
@@ -483,22 +488,47 @@ class ExerciseController extends Controller
             }
 
             $score = $correctAnswers === 0 ? 0 : round(($correctAnswers / $totalQuestions) * 100);
-
-            if ($isAuto && $localScore !== null) {
-                $score = (int) $localScore;
-            }
+            // Score selalu dihitung backend — tidak menerima local_score dari client
         }
 
-        //  SIMPAN KE DATABASE (wrapped in transaction to prevent partial saves)
-        $point = DB::transaction(function () use ($student, $id, $answers, $score) {
-            return ExercisePoint::create([
-                'serial_id'      => $student->serial_id,
-                'exercise_id'    => $id,
-                'student_id'     => $student->id,
-                'answer'         => json_encode($answers),
-                'exercise_point' => $score,
+        // ============================================================
+        // SIMPAN KE DATABASE — dilindungi oleh UNIQUE constraint
+        // Jika dua request bersamaan lolos cek di atas, DB akan throw
+        // UniqueConstraintViolationException untuk request kedua
+        // ============================================================
+        try {
+            $point = DB::transaction(function () use ($student, $id, $answers, $score) {
+                return ExercisePoint::create([
+                    'serial_id'      => $student->serial_id,
+                    'exercise_id'    => $id,
+                    'student_id'     => $student->id,
+                    'answer'         => json_encode($answers),
+                    'exercise_point' => $score,
+                ]);
+            });
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Race condition tertangkap di DB level — kembalikan response "sudah dikerjakan"
+            // Ini terjadi jika dua request submit bersamaan, keduanya lolos cek awal,
+            // tapi hanya satu yang berhasil insert karena unique constraint
+            $existing = ExercisePoint::where('exercise_id', $id)
+                ->where('student_id', $student->id)
+                ->first();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Quiz sudah pernah dikerjakan',
+                'data' => $existing
+            ], 403);
+        } catch (\Exception $e) {
+            Log::error('ExerciseController@submit DB error: ' . $e->getMessage(), [
+                'exercise_id' => $id,
+                'student_id'  => $student->id,
             ]);
-        });
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal menyimpan hasil kuis. Coba lagi.',
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,
