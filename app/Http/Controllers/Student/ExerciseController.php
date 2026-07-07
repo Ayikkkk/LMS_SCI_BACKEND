@@ -199,9 +199,7 @@ class ExerciseController extends Controller
 
             $options     = $this->parseOptions($item->selection, $item->exercise_model_id);
             $optionsHtml = $this->parseOptionsHtml($item->selection, $item->exercise_model_id);
-
-            // Normalisasi jawaban benar: decode JSON array jika perlu, hasilkan huruf kecil
-            $correctAnswer = $this->normalizeAnswer($item->answer);
+            // $correctAnswer tidak dihitung di sini — digunakan hanya saat submit (checkSingleAnswer dll)
 
             return [
                 'id'               => $item->id,
@@ -209,7 +207,8 @@ class ExerciseController extends Controller
                 'question_html'    => $questionHtml,
                 'options'          => $options,
                 'options_html'     => $optionsHtml,
-                'correct_answer'   => $correctAnswer, // huruf kecil: a/b/c/d
+                // correct_answer TIDAK dikirim ke client — scoring dilakukan di backend
+                // Field ini sebelumnya bocor jawaban ke siswa yang inspect network traffic
                 'type'             => $this->mapModelIdToType($item->exercise_model_id),
                 'is_multiple'      => $item->exercise_model_id == 2,
                 'allow_multiple'   => $item->exercise_model_id == 2,
