@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 
 class ReportController extends Controller
 {
-    // Ambil semua laporan user
+    // Ambil semua laporan milik siswa yang sedang login
     public function index(Request $request)
     {
         $student = $request->user();
@@ -24,10 +24,15 @@ class ReportController extends Controller
         ]);
     }
 
-    // Detail laporan
-    public function show($id)
+    // Detail laporan — IDOR fix: wajib cek student_id agar siswa tidak bisa
+    // akses laporan milik siswa lain dengan menebak/increment id
+    public function show(Request $request, $id)
     {
-        $report = Report::find($id);
+        $student = $request->user();
+
+        $report = Report::where('id', $id)
+            ->where('student_id', $student->id) // ← IDOR protection
+            ->first();
 
         if (!$report) {
             return response()->json([
@@ -50,7 +55,7 @@ class ReportController extends Controller
         try {
             $request->validate([
                 'report' => 'required|string',
-                'img' => 'nullable|image|mimes:jpg,jpeg,png|max:4096',
+                'img'    => 'nullable|image|mimes:jpg,jpeg,png|max:4096',
             ]);
 
             // Decode report JSON dari Flutter
@@ -67,22 +72,17 @@ class ReportController extends Controller
             $imgPath = null;
             if ($request->hasFile('img')) {
                 $file = $request->file('img');
+                $ext  = strtolower($file->getClientOriginalExtension());
 
-                // ambil nama asli file
-                $originalName = $file->getClientOriginalName();
+                // Gunakan Str::random(40) untuk nama unik — aman dari collision
+                // (pola sama dengan AuthController::updateProfile)
+                $safeName = Str::random(40) . '.' . $ext;
 
-                // slug agar aman
-                $name = pathinfo($originalName, PATHINFO_FILENAME);
-                $ext  = $file->getClientOriginalExtension();
+                // Simpan ke storage/app/public/reports/
+                $file->storeAs('reports', $safeName, 'public');
 
-                // final filename => nama-asli-yang-sudah-dirapikan + timestamp
-                $safeName = Str::slug($name) . '-' . time() . '.' . strtolower($ext);
-
-                // simpan ke folder public/storage/reports
-                $file->storeAs('public/reports', $safeName);
-
-                // Simpan ke database
-                $imgPath = $safeName;
+                // Simpan path lengkap ke DB agar bisa direkonstruksi jadi URL
+                $imgPath = 'reports/' . $safeName;
             }
 
             // Simpan ke database
@@ -121,7 +121,7 @@ class ReportController extends Controller
 
         return response()->json([
             'success' => true,
-            'filled' => $report ? true : false
+            'filled'  => $report !== null
         ]);
     }
 }
