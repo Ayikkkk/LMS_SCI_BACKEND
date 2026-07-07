@@ -45,41 +45,73 @@ class MeetingController extends Controller
     public function join(Request $request, $id)
     {
         $student = $request->user();
-        $meeting = OnlineMeeting::findOrFail($id);
 
-        // Validasi kelas
-        if ($student->classroom_id !== $meeting->classroom_id) {
+        // Wrap dalam transaksi + lockForUpdate untuk menghindari TOCTOU:
+        // - Dua request join bersamaan dari siswa yang sama tidak akan membuat duplikat
+        // - Status meeting tidak bisa berubah di antara cek dan insert
+        $result = \Illuminate\Support\Facades\DB::transaction(function () use ($student, $id) {
+
+            // Lock baris meeting untuk durasi transaksi ini
+            // Mencegah race condition saat status berubah bersamaan
+            $meeting = OnlineMeeting::lockForUpdate()->find($id);
+
+            if (!$meeting) {
+                return ['error' => 'not_found', 'status' => 404];
+            }
+
+            // Validasi kelas — siswa hanya bisa join kelas sendiri
+            if ($student->classroom_id !== $meeting->classroom_id) {
+                return ['error' => 'forbidden_classroom', 'status' => 403];
+            }
+
+            // Cek status meeting di dalam transaksi (atomik)
+            if ($meeting->status === 'upcoming') {
+                return ['error' => 'upcoming', 'status' => 403];
+            }
+
+            if ($meeting->status === 'ended') {
+                return ['error' => 'ended', 'status' => 403];
+            }
+
+            // updateOrCreate aman dari duplikat karena:
+            // 1. DB punya UNIQUE(online_meeting_id, user_id)
+            // 2. Kita di dalam lockForUpdate transaction
+            OnlineMeetingParticipant::updateOrCreate(
+                [
+                    'online_meeting_id' => $meeting->id,
+                    'user_id'           => $student->id,
+                ],
+                [
+                    'role'      => 'student',
+                    'joined_at' => now(),
+                    'left_at'   => null,
+                ]
+            );
+
+            return [
+                'meeting_code' => $meeting->meeting_code,
+                'jitsi_url'    => config('services.jitsi.domain') . '/' . $meeting->meeting_code,
+            ];
+        });
+
+        // Handle error results dari transaksi
+        if (isset($result['error'])) {
+            $messages = [
+                'not_found'          => 'Meeting tidak ditemukan',
+                'forbidden_classroom'=> 'Anda tidak terdaftar dalam kelas meeting ini',
+                'upcoming'           => 'Meeting belum dimulai oleh guru',
+                'ended'              => 'Meeting sudah berakhir',
+            ];
             return response()->json([
                 'success' => false,
-                'message' => 'Anda tidak terdaftar dalam kelas meeting ini'
-            ], 403);
+                'message' => $messages[$result['error']] ?? 'Tidak dapat bergabung',
+            ], $result['status']);
         }
-
-        // Jika meeting belum dimulai, JANGAN biarkan siswa memulai
-        if ($meeting->status === 'upcoming') {
-            return response()->json([
-                'success' => false,
-                'message' => 'Meeting belum dimulai oleh guru'
-            ], 403);
-        }
-
-        // Insert / update participant siswa
-        OnlineMeetingParticipant::updateOrCreate(
-            [
-                'online_meeting_id' => $meeting->id,
-                'user_id' => $student->id,
-            ],
-            [
-                'role' => 'student',
-                'joined_at' => now(),
-                'left_at' => null,
-            ]
-        );
 
         return response()->json([
-            'success' => true,
-            'meeting_code' => $meeting->meeting_code,
-            'jitsi_url' => config('services.jitsi.domain') . '/' . $meeting->meeting_code
+            'success'      => true,
+            'meeting_code' => $result['meeting_code'],
+            'jitsi_url'    => $result['jitsi_url'],
         ]);
     }
 
