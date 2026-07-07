@@ -18,46 +18,19 @@ class PostComment extends Model
     ];
 
     protected $casts = [
-        'is_user' => 'boolean',
+        'is_user'    => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
 
-    protected $appends = ['author_name', 'author_photo'];
-
-    // ========== ATTRIBUTES ========== //
-    public function getAuthorNameAttribute()
-    {
-        if ($this->is_user && $this->user) {
-            return $this->user->name;
-        } elseif (!$this->is_user && $this->student) {
-            return $this->student->name;
-        }
-
-        return "Unknown";
-    }
-
-    public function getAuthorPhotoAttribute()
-    {
-        $baseUrl = rtrim((string) config('app.url'), '/');
-
-        if ($this->is_user && $this->user && $this->user->img) {
-            return $baseUrl . '/api/files/users/' . $this->user->img;
-        }
-
-        if (!$this->is_user && $this->student && $this->student->photo) {
-            $photo = $this->student->photo;
-            // Jika sudah full URL, ekstrak relative path-nya
-            if (str_starts_with($photo, 'http://') || str_starts_with($photo, 'https://')) {
-                $parsed = parse_url($photo, PHP_URL_PATH);
-                $relativePath = ltrim(str_replace('/storage/', '', $parsed), '/');
-                return $baseUrl . '/api/files/' . $relativePath;
-            }
-            return $baseUrl . '/api/files/' . $photo;
-        }
-
-        return null;
-    }
+    /**
+     * $appends DINONAKTIFKAN — accessor author_name/author_photo dulu menyebabkan
+     * N+1 karena akses relasi $this->user / $this->student secara lazy per record.
+     *
+     * Pengganti: eager load relasi di controller dengan kolom terbatas,
+     * lalu Flutter membaca field student.name / user.name langsung dari JSON.
+     */
+    // protected $appends = ['author_name', 'author_photo'];
 
     // ========== RELATIONSHIPS ========== //
     public function post()

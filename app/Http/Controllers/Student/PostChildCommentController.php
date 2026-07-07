@@ -23,7 +23,7 @@ class PostChildCommentController extends Controller
             'is_user'         => 0
         ]);
 
-        $reply->load(['student', 'user']);
+        $reply->load(['student:id,name,photo', 'user:id,name,img']);
 
         return response()->json([
             'success' => true,
