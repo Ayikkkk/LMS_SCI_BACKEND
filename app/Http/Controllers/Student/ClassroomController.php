@@ -51,10 +51,9 @@ class ClassroomController extends Controller
                 // Batasi kolom siswa — hanya yang dibutuhkan untuk tampil di UI
                 // Jangan expose: email, phone, password, photo, token
                 'students:id,classroom_id,name,absen_number,nis',
-
-                // Guru: hanya id dan nama — teacher() via user_id
-                // Catatan: relasi ini return null jika kolom user_id tidak ada di tabel classrooms
-                'teacher:id,name',
+                // teacher() tidak di-load: kolom user_id tidak ada di tabel classrooms,
+                // relasi ini selalu null dan menyebabkan query yang sia-sia.
+                // Info guru tersedia via Student::guru() jika dibutuhkan.
             ])
             ->select(['id', 'name', 'grade', 'code', 'serial_id'])
             ->first();
