@@ -6,8 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Task;
 use App\Models\Post;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+
 class TaskController extends Controller
 {
     /**
@@ -37,8 +40,16 @@ class TaskController extends Controller
 
         return response()->json($tasks);
     }
+
     /**
      * Menyimpan tugas baru (submit tugas).
+     *
+     * Race condition protection:
+     * - Cek awal (quick check, non-atomik) untuk early return
+     * - Upload file dilakukan SEBELUM insert DB
+     * - Insert DB dilindungi UNIQUE constraint (student_id, post_id)
+     * - Jika UniqueConstraintViolationException → return 409 (sudah submit)
+     * - Jika insert gagal → hapus file yang sudah diupload (rollback manual)
      */
     public function store(Request $request)
     {
@@ -47,7 +58,7 @@ class TaskController extends Controller
         $validated = $request->validate([
             'post_id'     => 'required|integer|exists:posts,id',
             'description' => 'nullable|string',
-            'attachment'  => 'nullable|file|mimes:pdf,doc,docx,zip,jpg,jpeg,png,mp4,mov,avi,mkv|max:10240', // 10MB
+            'attachment'  => 'nullable|file|mimes:pdf,doc,docx,zip,jpg,jpeg,png,mp4,mov,avi,mkv|max:10240',
         ]);
 
         $post = Post::where('id', $validated['post_id'])
@@ -66,7 +77,8 @@ class TaskController extends Controller
             ], 403);
         }
 
-        // Cek apakah sudah pernah submit
+        // Cek awal — quick check sebelum proses upload
+        // Race condition tetap ditangani oleh unique constraint di bawah
         $existingTask = Task::where('student_id', $student->id)
             ->where('post_id', $validated['post_id'])
             ->first();
@@ -78,26 +90,65 @@ class TaskController extends Controller
             ], 409);
         }
 
-        // Upload file
+        // Upload file SEBELUM insert DB
+        // Jika insert gagal, file akan dihapus (rollback manual)
         $fileName = null;
         if ($request->hasFile('attachment')) {
-            $fileName = time() . '_' . $request->file('attachment')->getClientOriginalName();
+            // Gunakan Str::random(40) untuk nama unik — tidak bergantung time()
+            // Mencegah collision saat dua siswa upload file bersamaan
+            $ext      = $request->file('attachment')->getClientOriginalExtension();
+            $fileName = Str::random(40) . '.' . strtolower($ext);
             $request->file('attachment')->storeAs('tasks', $fileName, 'public');
         }
 
-        // Simpan
-        $task = Task::create([
-            'serial_id' => $student->serial_id,
-            'post_id' => $validated['post_id'],
-            'student_id' => $student->id,
-            'description' => $request->description,
-            'attachment' => $fileName,
-        ]);
+        try {
+            $task = DB::transaction(function () use ($student, $validated, $request, $fileName) {
+                return Task::create([
+                    'serial_id'   => $student->serial_id,
+                    'post_id'     => $validated['post_id'],
+                    'student_id'  => $student->id,
+                    'description' => $request->description,
+                    'attachment'  => $fileName,
+                ]);
+            });
+
+        } catch (\Illuminate\Database\UniqueConstraintViolationException $e) {
+            // Race condition: dua request bersamaan lolos cek awal, tapi
+            // hanya satu yang berhasil insert karena unique constraint
+            if ($fileName) {
+                Storage::disk('public')->delete('tasks/' . $fileName);
+            }
+            return response()->json([
+                'success' => false,
+                'message' => '❌ Kamu sudah mengirim tugas ini sebelumnya.'
+            ], 409);
+
+        } catch (\Exception $e) {
+            // DB error lain — hapus file yang sudah diupload
+            if ($fileName) {
+                try {
+                    Storage::disk('public')->delete('tasks/' . $fileName);
+                } catch (\Exception $deleteErr) {
+                    Log::warning('TaskController@store: failed to delete orphan file after DB error', [
+                        'file' => $fileName,
+                        'error' => $deleteErr->getMessage(),
+                    ]);
+                }
+            }
+            Log::error('TaskController@store DB error: ' . $e->getMessage(), [
+                'post_id'    => $validated['post_id'],
+                'student_id' => $student->id,
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Terjadi kesalahan server. Coba lagi.'
+            ], 500);
+        }
 
         return response()->json([
             'success' => true,
             'message' => '✅ Tugas berhasil dikirim!',
-            'data' => $task
+            'data'    => $task
         ], 201);
     }
 
@@ -148,8 +199,14 @@ class TaskController extends Controller
                 'attachment'  => 'nullable|file|mimes:pdf,doc,docx,zip,jpg,jpeg,png,mp4,mov,avi,mkv|max:10240',
             ]);
 
+            $newFileName = null;
             if ($request->hasFile('attachment')) {
-                // Hapus file lama jika ada (ignore error jika file tidak ada)
+                // Upload file baru dulu, nama unik menggunakan Str::random
+                $ext         = $request->file('attachment')->getClientOriginalExtension();
+                $newFileName = Str::random(40) . '.' . strtolower($ext);
+                $request->file('attachment')->storeAs('tasks', $newFileName, 'public');
+
+                // Hapus file lama setelah upload baru berhasil
                 if ($task->attachment) {
                     try {
                         Storage::disk('public')->delete('tasks/' . $task->attachment);
@@ -158,18 +215,13 @@ class TaskController extends Controller
                     }
                 }
 
-                $fileName = time() . '_' . $request->file('attachment')->getClientOriginalName();
-                $request->file('attachment')->storeAs('tasks', $fileName, 'public');
-                $task->attachment = $fileName;
+                $task->attachment = $newFileName;
             }
 
-            // Gunakan deskripsi baru jika ada, jika tidak pakai yang lama
-            // Pastikan description tidak null karena kolom NOT NULL
             $newDescription = $validated['description'] ?? null;
             if ($newDescription !== null && trim($newDescription) !== '') {
                 $task->description = $newDescription;
             }
-            // Jika description kosong/null dari request, biarkan nilai lama
 
             $task->point = null;
             $task->save();
@@ -177,18 +229,19 @@ class TaskController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Jawaban tugas berhasil diperbarui.',
-                'data' => $task
+                'data'    => $task
             ]);
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validasi gagal.',
-                'errors' => $e->errors()
+                'errors'  => $e->errors()
             ], 422);
         } catch (\Exception $e) {
             Log::error('TaskController@update error: ' . $e->getMessage(), [
                 'post_id' => $postId,
-                'trace' => $e->getTraceAsString()
+                'trace'   => $e->getTraceAsString()
             ]);
             return response()->json([
                 'success' => false,
@@ -228,8 +281,8 @@ class TaskController extends Controller
         $fileName = $task->attachment;
 
         return response()->file($path, [
-            'Content-Type'              => $mimeType,
-            'Content-Disposition'       => 'attachment; filename="' . $fileName . '"',
+            'Content-Type'                => $mimeType,
+            'Content-Disposition'         => 'attachment; filename="' . $fileName . '"',
             'Access-Control-Allow-Origin' => '*',
         ]);
     }
