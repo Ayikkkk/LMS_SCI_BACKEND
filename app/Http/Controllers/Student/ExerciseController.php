@@ -445,7 +445,8 @@ class ExerciseController extends Controller
         //  CEK APAKAH PERLU MANUAL GRADING
         $isPendingReview = $this->isManualGradingType($exerciseTypeName);
 
-        $questions = ExerciseItem::where('exercise_id', $id)->get();
+        $questions = ExerciseItem::where('exercise_id', $id)
+            ->get(['id', 'exercise_model_id', 'answer']); // hanya kolom untuk scoring
         $totalQuestions = $questions->count();
 
         if ($totalQuestions === 0) {
