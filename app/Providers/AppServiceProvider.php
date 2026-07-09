@@ -38,6 +38,12 @@ class AppServiceProvider extends ServiceProvider
                 ->dailyAt('02:00')
                 ->runInBackground()
                 ->withoutOverlapping();
+
+            // Bersihkan file cache proxy-image > 30 hari — setiap hari jam 03:00 WIB
+            $schedule->command('proxy-images:cleanup --days=30')
+                ->dailyAt('03:00')
+                ->runInBackground()
+                ->withoutOverlapping();
         });
     }
 }
