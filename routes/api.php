@@ -95,7 +95,8 @@ Route::prefix('student')->group(function () {
          */
         Route::get('/exercise-lessons', [ExerciseController::class, 'index']);
         Route::get('/lesson/{lessonId}/exercises', [ExerciseController::class, 'exercisesByLesson']);
-        Route::get('/exercises', [ExerciseController::class, 'index_old']);
+        // Route GET /exercises dihapus — index_old tidak ada di controller
+        // dan tidak ada Flutter code yang memanggil endpoint ini
         Route::get('/exercises/{id}', [ExerciseController::class, 'show']);
         // Submit kuis: max 5x per menit (cegah double submit)
         Route::post('/exercises/{id}/submit', [ExerciseController::class, 'submit'])->middleware('throttle:5,1');
