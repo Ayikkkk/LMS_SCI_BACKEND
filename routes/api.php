@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 // STUDENT CONTROLLERS
 use App\Http\Controllers\Student\AuthController;
@@ -157,82 +158,109 @@ Route::prefix('student')->group(function () {
 
 // =======================
 // PUBLIC IMAGE PROXY
-// Download gambar dari domain eksternal (backend guru) menggunakan cURL
-// Response di-cache 24 jam agar tidak fetch ulang gambar yang sama
+// Mengambil gambar dari domain guru (whitelist only) dan meng-cache di disk lokal.
+// Cache disimpan sebagai file binary — lebih efisien daripada serialize ke file cache.
+// Rate limit: 120 request/menit per IP.
 // =======================
-Route::get('/proxy-image', function (\Illuminate\Http\Request $request) {
+Route::middleware('throttle:120,1')->get('/proxy-image', function (\Illuminate\Http\Request $request) {
     $url = $request->query('url');
 
+    // Validasi URL ada dan formatnya valid
     if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
         abort(400, 'Invalid URL');
+    }
+
+    // Hanya izinkan http:// dan https:// — cegah file://, ftp://, dll (SSRF)
+    $scheme = strtolower(parse_url($url, PHP_URL_SCHEME) ?? '');
+    if (!in_array($scheme, ['http', 'https'], true)) {
+        abort(400, 'Invalid URL scheme');
     }
 
     // Whitelist domain yang diizinkan
     $allowedDomains = [
         'tak-scimediaonline.my.id',
         'guru.tak-scimediaonline.my.id',
-        '151.243.222.93',
-        '127.0.0.1',
     ];
 
-    $host = parse_url($url, PHP_URL_HOST);
-    $allowed = collect($allowedDomains)->contains(fn($d) => str_contains($host, $d));
+    $host = strtolower(parse_url($url, PHP_URL_HOST) ?? '');
+    if (empty($host)) {
+        abort(400, 'Invalid URL host');
+    }
 
+    $allowed = collect($allowedDomains)->contains(fn($d) => $host === $d || str_ends_with($host, '.' . $d));
     if (!$allowed) {
         abort(403, 'Domain not allowed');
     }
 
-    // Cache key berdasarkan URL — hindari fetch ulang gambar yang sama
-    $cacheKey = 'proxy_img_' . md5($url);
-    $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
-    if ($cached) {
-        return response($cached['data'], 200, [
-            'Content-Type'                => $cached['mime'],
+    // Cache: simpan sebagai file binary di storage/app/proxy-images/
+    // Lebih efisien dari Cache::put(binary) yang serialize + base64 data
+    $cacheFileName = 'proxy-images/' . md5($url);
+    $metaKey       = 'proxy_img_meta_' . md5($url);
+
+    // Cek file cache sudah ada
+    if (Storage::exists($cacheFileName)) {
+        $meta = \Illuminate\Support\Facades\Cache::get($metaKey, ['mime' => 'image/jpeg']);
+        return response(Storage::get($cacheFileName), 200, [
+            'Content-Type'                => $meta['mime'],
             'Cache-Control'               => 'public, max-age=86400',
             'Access-Control-Allow-Origin' => '*',
             'X-Cache'                     => 'HIT',
         ]);
     }
 
-    // Gunakan cURL agar TLS support lebih baik
+    // Fetch dari upstream menggunakan cURL
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_MAXREDIRS      => 3,        // batasi redirect — cegah redirect loop
+        CURLOPT_SSL_VERIFYPEER => false,    // bypass self-signed cert domain guru
         CURLOPT_SSL_VERIFYHOST => false,
         CURLOPT_TIMEOUT        => 15,
         CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_USERAGENT      => 'Mozilla/5.0 (Linux; Android 13)',
-        CURLOPT_HTTPHEADER     => ['Accept: image/*'],
-        CURLOPT_SSLVERSION     => CURL_SSLVERSION_TLSv1_2,
+        CURLOPT_USERAGENT      => 'LMS-Proxy/1.0',
+        CURLOPT_HTTPHEADER     => ['Accept: image/jpeg, image/png, image/gif, image/webp, image/*'],
+        CURLOPT_BUFFERSIZE     => 131072,   // 128KB buffer
     ]);
 
     $imageData = curl_exec($ch);
     $httpCode  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $mimeType  = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/jpeg';
+    $fileSize  = curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
     $curlError = curl_error($ch);
-    curl_close($ch);
+    // curl_close deprecated di PHP 8.4+, tidak perlu dipanggil
+    unset($ch);
 
     if ($imageData === false || !empty($curlError)) {
-        \Illuminate\Support\Facades\Log::error('Proxy image cURL error: ' . $curlError . ' URL: ' . $url);
-        abort(502, 'Failed to fetch image: ' . $curlError);
+        Log::warning("Proxy image fetch failed: {$curlError} — URL: {$url}");
+        abort(502, 'Failed to fetch image');
     }
 
     if ($httpCode !== 200) {
-        abort($httpCode ?: 502, 'Upstream returned ' . $httpCode);
+        abort($httpCode ?: 502, "Upstream returned {$httpCode}");
     }
 
-    $mimeType = explode(';', $mimeType)[0];
+    // Batasi ukuran — cegah gambar sangat besar menghabiskan disk
+    // Gambar soal normal < 2MB
+    if ($fileSize > 5 * 1024 * 1024) { // 5MB max
+        abort(413, 'Image too large');
+    }
 
-    // Simpan ke cache 24 jam — gambar soal jarang berubah
-    \Illuminate\Support\Facades\Cache::put($cacheKey, [
-        'data' => $imageData,
-        'mime' => trim($mimeType) ?: 'image/jpeg',
-    ], 86400);
+    // Pastikan response adalah image — cegah download file executable
+    $mimeType  = trim(explode(';', $mimeType)[0]);
+    $validMime = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!in_array($mimeType, $validMime, true)) {
+        abort(415, 'Unsupported media type');
+    }
+
+    // Simpan ke disk sebagai file binary — tidak di-serialize
+    Storage::put($cacheFileName, $imageData);
+
+    // Simpan metadata (mime type) di cache — jauh lebih kecil dari binary
+    \Illuminate\Support\Facades\Cache::put($metaKey, ['mime' => $mimeType], 86400);
 
     return response($imageData, 200, [
-        'Content-Type'                => trim($mimeType) ?: 'image/jpeg',
+        'Content-Type'                => $mimeType,
         'Cache-Control'               => 'public, max-age=86400',
         'Access-Control-Allow-Origin' => '*',
         'X-Cache'                     => 'MISS',
