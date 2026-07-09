@@ -161,39 +161,58 @@ Route::prefix('student')->group(function () {
 // Mengambil gambar dari domain guru (whitelist only) dan meng-cache di disk lokal.
 // Cache disimpan sebagai file binary — lebih efisien daripada serialize ke file cache.
 // Rate limit: 120 request/menit per IP.
+//
+// Internal routing:
+//   tak-scimediaonline.my.id → fetch via http://127.0.0.1:30080 (VPS tidak bisa akses public IP sendiri)
+//   guru.tak-scimediaonline.my.id → tetap fetch langsung via URL asli
+// Validasi keamanan selalu berdasarkan URL asli dari client.
+// Cache key selalu berdasarkan URL publik asli agar konsisten.
 // =======================
 Route::middleware('throttle:120,1')->get('/proxy-image', function (\Illuminate\Http\Request $request) {
     $url = $request->query('url');
 
-    // Validasi URL ada dan formatnya valid
-    if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+    // Validasi URL ada dan tidak kosong
+    if (empty($url) || !is_string($url)) {
         abort(400, 'Invalid URL');
     }
 
-    // Hanya izinkan http:// dan https:// — cegah file://, ftp://, dll (SSRF)
-    $scheme = strtolower(parse_url($url, PHP_URL_SCHEME) ?? '');
+    // Parse URL secara hati-hati — tolak URL malformed
+    $parsed = parse_url($url);
+    if ($parsed === false || empty($parsed['scheme']) || empty($parsed['host'])) {
+        abort(400, 'Malformed URL');
+    }
+
+    // Tolak jika ada userinfo (user:pass@host) atau fragment (#) — tidak diperlukan, bisa disalahgunakan
+    if (!empty($parsed['user']) || !empty($parsed['pass']) || isset($parsed['fragment'])) {
+        abort(400, 'URL contains disallowed components');
+    }
+
+    // Hanya izinkan http:// dan https:// — cegah file://, ftp://, gopher://, dll (SSRF)
+    $scheme = strtolower($parsed['scheme']);
     if (!in_array($scheme, ['http', 'https'], true)) {
         abort(400, 'Invalid URL scheme');
     }
 
-    // Whitelist domain yang diizinkan
+    // Normalisasi host — lowercase, tanpa port
+    $host = strtolower($parsed['host']);
+    if (empty($host)) {
+        abort(400, 'Invalid URL host');
+    }
+
+    // Whitelist domain yang diizinkan oleh client
+    // Catatan: IP lokal/private TIDAK boleh ada di sini karena validasi ini berdasarkan URL dari client
     $allowedDomains = [
         'tak-scimediaonline.my.id',
         'guru.tak-scimediaonline.my.id',
     ];
-
-    $host = strtolower(parse_url($url, PHP_URL_HOST) ?? '');
-    if (empty($host)) {
-        abort(400, 'Invalid URL host');
-    }
 
     $allowed = collect($allowedDomains)->contains(fn($d) => $host === $d || str_ends_with($host, '.' . $d));
     if (!$allowed) {
         abort(403, 'Domain not allowed');
     }
 
-    // Cache: simpan sebagai file binary di storage/app/proxy-images/
-    // Lebih efisien dari Cache::put(binary) yang serialize + base64 data
+    // Cache key berdasarkan URL PUBLIK asli — bukan URL internal fetch
+    // Ini memastikan cache konsisten dan tidak ada collision antar user
     $cacheFileName = 'proxy-images/' . md5($url);
     $metaKey       = 'proxy_img_meta_' . md5($url);
 
@@ -208,16 +227,37 @@ Route::middleware('throttle:120,1')->get('/proxy-image', function (\Illuminate\H
         ]);
     }
 
+    // Bangun URL fetch internal — hanya untuk host tertentu yang tidak bisa diakses
+    // via public IP dari dalam VPS (self-connect timeout).
+    // Path dan query diambil dari parse_url() hasil parsing URL asli yang sudah divalidasi.
+    // Host 127.0.0.1:30080 hanya digunakan untuk fetch, BUKAN untuk validasi.
+    $fetchUrl = $url; // default: gunakan URL publik asli
+
+    if ($host === 'tak-scimediaonline.my.id') {
+        // VPS tidak bisa connect ke public IP-nya sendiri via port 443
+        // Service tersedia secara internal di http://127.0.0.1:30080
+        $internalPath  = $parsed['path'] ?? '/';
+        $internalQuery = !empty($parsed['query']) ? '?' . $parsed['query'] : '';
+
+        // Validasi path tidak mengandung traversal
+        $normalizedPath = '/' . ltrim($internalPath, '/');
+        if (str_contains($normalizedPath, '..')) {
+            abort(400, 'Invalid path');
+        }
+
+        $fetchUrl = 'http://127.0.0.1:30080' . $normalizedPath . $internalQuery;
+    }
+
     // Fetch dari upstream menggunakan cURL
-    $ch = curl_init($url);
+    $ch = curl_init($fetchUrl);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_MAXREDIRS      => 3,        // batasi redirect — cegah redirect loop
         CURLOPT_SSL_VERIFYPEER => false,    // bypass self-signed cert domain guru
         CURLOPT_SSL_VERIFYHOST => false,
-        CURLOPT_TIMEOUT        => 15,
-        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT        => 15,       // total timeout termasuk transfer
+        CURLOPT_CONNECTTIMEOUT => 5,        // connection timeout (internal lebih cepat)
         CURLOPT_USERAGENT      => 'LMS-Proxy/1.0',
         CURLOPT_HTTPHEADER     => ['Accept: image/jpeg, image/png, image/gif, image/webp, image/*'],
         CURLOPT_BUFFERSIZE     => 131072,   // 128KB buffer
@@ -228,7 +268,7 @@ Route::middleware('throttle:120,1')->get('/proxy-image', function (\Illuminate\H
     $mimeType  = curl_getinfo($ch, CURLINFO_CONTENT_TYPE) ?: 'image/jpeg';
     $fileSize  = curl_getinfo($ch, CURLINFO_SIZE_DOWNLOAD);
     $curlError = curl_error($ch);
-    // curl_close deprecated di PHP 8.4+, tidak perlu dipanggil
+    // curl_close deprecated sejak PHP 8.4 — gunakan unset()
     unset($ch);
 
     if ($imageData === false || !empty($curlError)) {
@@ -241,22 +281,21 @@ Route::middleware('throttle:120,1')->get('/proxy-image', function (\Illuminate\H
     }
 
     // Batasi ukuran — cegah gambar sangat besar menghabiskan disk
-    // Gambar soal normal < 2MB
     if ($fileSize > 5 * 1024 * 1024) { // 5MB max
         abort(413, 'Image too large');
     }
 
-    // Pastikan response adalah image — cegah download file executable
+    // Pastikan response adalah image — cegah download file executable/HTML/dll
     $mimeType  = trim(explode(';', $mimeType)[0]);
     $validMime = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
     if (!in_array($mimeType, $validMime, true)) {
         abort(415, 'Unsupported media type');
     }
 
-    // Simpan ke disk sebagai file binary — tidak di-serialize
+    // Simpan ke disk sebagai file binary — tidak di-serialize seperti Cache::put
     Storage::put($cacheFileName, $imageData);
 
-    // Simpan metadata (mime type) di cache — jauh lebih kecil dari binary
+    // Simpan metadata (mime type) di Laravel cache — jauh lebih kecil dari binary
     \Illuminate\Support\Facades\Cache::put($metaKey, ['mime' => $mimeType], 86400);
 
     return response($imageData, 200, [
