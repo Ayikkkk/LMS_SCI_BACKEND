@@ -1,59 +1,235 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# LMS SCI Media — Backend (Laravel 12)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+REST API backend untuk aplikasi LMS SCI Media Online. Dibangun dengan **Laravel 12**, **PHP 8.2+**, dan **MySQL**.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Prasyarat
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Tool | Versi Minimum |
+|------|--------------|
+| PHP | 8.2 |
+| Composer | 2.x |
+| MySQL | 5.7 / 8.0 |
+| Node.js | 18+ (untuk asset build) |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+> Disarankan menggunakan **Laragon** (Windows) atau **Herd** untuk development lokal.
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+## Instalasi Lokal (Development)
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 1. Clone repository
 
-## Laravel Sponsors
+```bash
+git clone https://github.com/Ayikkkk/LMS_SCI_BACKEND.git
+cd LMS_SCI_BACKEND
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 2. Install dependensi PHP
 
-### Premium Partners
+```bash
+composer install
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+### 3. Buat file environment
 
-## Contributing
+```bash
+cp .env.example .env
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Edit `.env` sesuai konfigurasi lokal:
 
-## Code of Conduct
+```env
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://192.168.1.x:8000   # Sesuaikan dengan IP lokal Anda
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=lmssiswa_db
+DB_USERNAME=root
+DB_PASSWORD=
 
-## Security Vulnerabilities
+# Database terpisah untuk logging quiz activity
+DB_LOG_HOST=127.0.0.1
+DB_LOG_PORT=3306
+DB_LOG_DATABASE=lmssiswa_log
+DB_LOG_USERNAME=root
+DB_LOG_PASSWORD=
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+APP_TIMEZONE=Asia/Jakarta
+SANCTUM_TOKEN_EXPIRATION=10080
+JITSI_DOMAIN=https://meet.jit.si
+```
 
-## License
+### 4. Generate application key
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+php artisan key:generate
+```
+
+### 5. Buat database
+
+Buat dua database di MySQL:
+- `lmssiswa_db` — database utama
+- `lmssiswa_log` — database khusus log aktivitas quiz
+
+```sql
+CREATE DATABASE lmssiswa_db;
+CREATE DATABASE lmssiswa_log;
+```
+
+### 6. Jalankan migrasi
+
+```bash
+php artisan migrate
+```
+
+Migrasi database log:
+
+```bash
+php artisan migrate --database=mysql_log --path=database/migrations/log
+```
+
+### 7. (Opsional) Jalankan seeder
+
+```bash
+php artisan db:seed
+```
+
+### 8. Buat symlink storage
+
+```bash
+php artisan storage:link
+```
+
+### 9. Jalankan server lokal
+
+```bash
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+> Gunakan `--host=0.0.0.0` agar bisa diakses dari HP di jaringan yang sama saat testing Flutter.
+
+---
+
+## Struktur Database
+
+| Database | Fungsi |
+|----------|--------|
+| `lmssiswa_db` | Data utama: siswa, kelas, materi, tugas, quiz, nilai |
+| `lmssiswa_log` | Log aktivitas quiz (event: start, submit, suspicious) |
+
+---
+
+## Endpoint Utama
+
+Base URL: `{APP_URL}/api/`
+
+| Grup | Prefix | Keterangan |
+|------|--------|------------|
+| Auth | `/student/login` | Login siswa |
+| Dashboard | `/student/dashboard` | Data dashboard |
+| Materi | `/student/materials` | Daftar materi |
+| Tugas | `/student/assignments` | Daftar & detail tugas |
+| Submit Tugas | `/student/submit-task` | Pengumpulan tugas |
+| Quiz | `/student/exercises` | Daftar & kerjakan quiz |
+| Online Meeting | `/student/meetings` | Kelas online Jitsi |
+| Nilai | `/student/grades/rekap-mapel` | Rekap nilai per mapel |
+| Laporan Harian | `/student/reports` | Laporan harian siswa |
+| Proxy Gambar | `/api/proxy-image` | Proxy gambar soal eksternal |
+
+Semua endpoint (kecuali login) memerlukan header:
+```
+Authorization: Bearer {token}
+```
+
+---
+
+## Deployment ke VPS (Production)
+
+### 1. Pull & install
+
+```bash
+cd /var/www/Backend_Siswa
+git pull
+composer install --no-dev --optimize-autoloader
+```
+
+### 2. Buat/update `.env` production
+
+Gunakan template yang tersedia:
+
+```bash
+cp .env.production.no-redis .env
+# Edit sesuai konfigurasi VPS Anda
+```
+
+### 3. Jalankan migrasi
+
+```bash
+php artisan migrate --force
+php artisan migrate --database=mysql_log --path=database/migrations/log --force
+```
+
+### 4. Optimize
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan storage:link
+```
+
+### 5. Setup cron (scheduler)
+
+Tambahkan ke crontab (`crontab -e`):
+
+```
+* * * * * cd /var/www/Backend_Siswa && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Scheduled jobs yang berjalan otomatis:
+- `02:00` — Hapus quiz activity log > 30 hari
+- `03:00` — Hapus cache gambar proxy > 30 hari
+
+### 6. Buat folder cache gambar proxy
+
+```bash
+mkdir -p storage/app/proxy-images
+chmod 775 storage/app/proxy-images
+```
+
+---
+
+## Konfigurasi Tambahan
+
+### Sanctum (Token Auth)
+
+Token berlaku 7 hari (10080 menit). Dikonfigurasi di `.env`:
+```
+SANCTUM_TOKEN_EXPIRATION=10080
+```
+
+### Jitsi (Online Meeting)
+
+```
+JITSI_DOMAIN=https://meet.jit.si
+```
+
+### Image Proxy Internal Routing
+
+Jika VPS tidak bisa akses domain publiknya sendiri via port 443, konfigurasi di `routes/api.php`:
+- `tak-scimediaonline.my.id` → di-fetch via `http://127.0.0.1:30080` (internal)
+
+---
+
+## Tech Stack
+
+- **Framework**: Laravel 12
+- **Auth**: Laravel Sanctum
+- **PDF**: barryvdh/laravel-dompdf
+- **Database**: MySQL (dua database terpisah)
+- **File Storage**: Laravel Storage (public disk)
+- **Scheduler**: Laravel Task Scheduling
